@@ -68,7 +68,7 @@ class HybripedRoughCfg( LeggedRobotCfg ):
         decimation = 4
 
     class asset( LeggedRobotCfg.asset ):
-        file = "/home/zetans/Desktop/rl_hybriped/assets/urdf/hybriped/urdf/hybriped.urdf"
+        file = "/home/zetans/Desktop/rl_hybriped/assets/urdf/hybriped/urdf/hybriped_simplified.urdf"
         name = "hybriped"
         foot_name = "wheel"
         penalize_contacts_on = ["link2", "link3"]
