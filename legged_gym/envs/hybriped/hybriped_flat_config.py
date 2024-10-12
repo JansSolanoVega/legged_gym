@@ -28,26 +28,47 @@
 #
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
 
-from legged_gym import LEGGED_GYM_ROOT_DIR, LEGGED_GYM_ENVS_DIR
-from legged_gym.envs.a1.a1_config import A1RoughCfg, A1RoughCfgPPO
-from .base.legged_robot import LeggedRobot
-from .anymal_c.anymal import Anymal
-from .anymal_c.mixed_terrains.anymal_c_rough_config import AnymalCRoughCfg, AnymalCRoughCfgPPO
-from .anymal_c.flat.anymal_c_flat_config import AnymalCFlatCfg, AnymalCFlatCfgPPO
-from .anymal_b.anymal_b_config import AnymalBRoughCfg, AnymalBRoughCfgPPO
-from .cassie.cassie import Cassie
-from .cassie.cassie_config import CassieRoughCfg, CassieRoughCfgPPO
-from .a1.a1_config import A1RoughCfg, A1RoughCfgPPO
-from .hybriped.hybriped_rough_config import HybripedRoughCfg, HybripedRoughCfgPPO
-from .hybriped.hybriped_flat_config import HybripedCFlatCfg, HybripedFlatCfgPPO
+from .hybriped_rough_config import HybripedRoughCfg, HybripedRoughCfgPPO
 
-import os
+class HybripedCFlatCfg(HybripedRoughCfg ):
+    class env( HybripedRoughCfg.env ):
+        num_observations = 48
+  
+    class terrain( HybripedRoughCfg.terrain ):
+        mesh_type = 'plane'
+        measure_heights = False
+  
+    class asset( HybripedRoughCfg.asset ):
+        self_collisions = 0 # 1 to disable, 0 to enable...bitwise filter
 
-from legged_gym.utils.task_registry import task_registry
+    class rewards( HybripedRoughCfg.rewards ):
+        max_contact_force = 350.
+        class scales ( HybripedRoughCfg.rewards.scales ):
+            orientation = -5.0
+            torques = -0.000025
+            feet_air_time = 2.
+            # feet_contact_forces = -0.01
+    
+    class commands( HybripedRoughCfg.commands ):
+        heading_command = False
+        resampling_time = 4.
+        class ranges( HybripedRoughCfg.commands.ranges ):
+            ang_vel_yaw = [-1.5, 1.5]
 
-task_registry.register( "anymal_c_rough", Anymal, AnymalCRoughCfg(), AnymalCRoughCfgPPO() )
-task_registry.register( "anymal_c_flat", Anymal, AnymalCFlatCfg(), AnymalCFlatCfgPPO() )
-task_registry.register( "anymal_b", Anymal, AnymalBRoughCfg(), AnymalBRoughCfgPPO() )
-task_registry.register( "a1", LeggedRobot, A1RoughCfg(), A1RoughCfgPPO() )
-task_registry.register( "cassie", Cassie, CassieRoughCfg(), CassieRoughCfgPPO() )
-task_registry.register( "hybriped_flat", LeggedRobot, HybripedCFlatCfg(), HybripedFlatCfgPPO() )
+    class domain_rand( HybripedRoughCfg.domain_rand ):
+        friction_range = [0., 1.5] # on ground planes the friction combination mode is averaging, i.e total friction = (foot_friction + 1.)/2.
+
+class HybripedFlatCfgPPO( HybripedRoughCfgPPO ):
+    class policy( HybripedRoughCfgPPO.policy ):
+        actor_hidden_dims = [128, 64, 32]
+        critic_hidden_dims = [128, 64, 32]
+        activation = 'elu' # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
+
+    class algorithm( HybripedRoughCfgPPO.algorithm):
+        entropy_coef = 0.01
+
+    class runner ( HybripedRoughCfgPPO.runner):
+        run_name = ''
+        experiment_name = 'hybriped'
+        load_run = -1
+        max_iterations = 300
