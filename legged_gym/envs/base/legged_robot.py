@@ -49,7 +49,7 @@ from legged_gym.utils.helpers import class_to_dict
 from .legged_robot_config import LeggedRobotCfg
 
 class LeggedRobot(BaseTask):
-    def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
+    def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless, teleop=False):
         """ Parses the provided config file,
             calls create_sim() (which creates, simulation, terrain and environments),
             initilizes pytorch buffers used during training
@@ -75,6 +75,8 @@ class LeggedRobot(BaseTask):
         self._init_buffers()
         self._prepare_reward_function()
         self.init_done = True
+        self.teleop_commands = [0, 0, 0]
+        self.teleop = teleop
 
     def step(self, actions):
         """ Apply actions, simulate, call self.post_physics_step()
@@ -165,7 +167,7 @@ class LeggedRobot(BaseTask):
         self._reset_dofs(env_ids)
         self._reset_root_states(env_ids)
 
-        self._resample_commands(env_ids)
+        self._resample_commands(env_ids, self.teleop)
 
         # reset buffers
         self.last_actions[env_ids] = 0.
@@ -323,7 +325,7 @@ class LeggedRobot(BaseTask):
         """
         # 
         env_ids = (self.episode_length_buf % int(self.cfg.commands.resampling_time / self.dt)==0).nonzero(as_tuple=False).flatten()
-        self._resample_commands(env_ids)
+        self._resample_commands(env_ids, self.teleop)
         if self.cfg.commands.heading_command:
             forward = quat_apply(self.base_quat, self.forward_vec)
             heading = torch.atan2(forward[:, 1], forward[:, 0])
@@ -334,18 +336,24 @@ class LeggedRobot(BaseTask):
         if self.cfg.domain_rand.push_robots and  (self.common_step_counter % self.cfg.domain_rand.push_interval == 0):
             self._push_robots()
 
-    def _resample_commands(self, env_ids):
+    def _resample_commands(self, env_ids, teleop=False):
         """ Randommly select commands of some environments
 
         Args:
             env_ids (List[int]): Environments ids for which new commands are needed
         """
-        self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
-        self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids), 1), device=self.device).squeeze(1)
-        if self.cfg.commands.heading_command:
-            self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0], self.command_ranges["heading"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+        if not teleop:
+            self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+            self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+            if self.cfg.commands.heading_command:
+                self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0], self.command_ranges["heading"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+            else:
+                self.commands[env_ids, 2] = torch_rand_float(self.command_ranges["ang_vel_yaw"][0], self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1), device=self.device).squeeze(1)
         else:
-            self.commands[env_ids, 2] = torch_rand_float(self.command_ranges["ang_vel_yaw"][0], self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+            ones = torch.ones(len(env_ids), 1, device=self.device).squeeze(1)
+            self.commands[env_ids, 0] = self.teleop_commands[0]*ones
+            self.commands[env_ids, 1] = self.teleop_commands[1]*ones
+            self.commands[env_ids, 2] = self.teleop_commands[2]*ones
 
         # set small commands to zero
         self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)

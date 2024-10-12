@@ -62,7 +62,7 @@ class TaskRegistry():
         env_cfg.seed = train_cfg.seed
         return env_cfg, train_cfg
     
-    def make_env(self, name, args=None, env_cfg=None) -> Tuple[VecEnv, LeggedRobotCfg]:
+    def make_env(self, name, args=None, env_cfg=None, teleop=False) -> Tuple[VecEnv, LeggedRobotCfg]:
         """ Creates an environment either from a registered namme or from the provided config file.
 
         Args:
@@ -98,7 +98,8 @@ class TaskRegistry():
                             sim_params=sim_params,
                             physics_engine=args.physics_engine,
                             sim_device=args.sim_device,
-                            headless=args.headless)
+                            headless=args.headless,
+                            teleop=teleop)
         return env, env_cfg
 
     def make_alg_runner(self, env, name=None, args=None, train_cfg=None, log_root="default") -> Tuple[OnPolicyRunner, LeggedRobotCfgPPO]:

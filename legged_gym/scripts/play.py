@@ -37,9 +37,27 @@ from legged_gym.utils import  get_args, export_policy_as_jit, task_registry, Log
 
 import numpy as np
 import torch
+import threading
+from pynput import keyboard
 
+SPEED = 0.5
 
-def play(args):
+# Función para detectar teclas presionadas
+def on_press(key):
+    global last_key
+    try:
+        last_key = key.char  # Para teclas alfanuméricas
+    except AttributeError:
+        last_key = str(key)  # Para teclas especiales
+
+# Hilo para escuchar el teclado en segundo plano
+def start_keyboard_listener():
+    listener = keyboard.Listener(on_press=on_press)
+    listener.start()  # Iniciar el listener en un hilo aparte
+    listener.join()  # Mantenerlo activo
+
+def play(args, teleop):
+    global last_key
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # override some parameters for testing
     env_cfg.env.num_envs = min(env_cfg.env.num_envs, 50)
@@ -51,7 +69,7 @@ def play(args):
     env_cfg.domain_rand.push_robots = False
 
     # prepare environment
-    env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
+    env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg, teleop=teleop)
     obs = env.get_observations()
     # load policy
     train_cfg.runner.resume = True
@@ -75,6 +93,26 @@ def play(args):
     img_idx = 0
 
     for i in range(10*int(env.max_episode_length)):
+        if last_key and teleop:
+
+            if last_key == 'w':  # Adelante
+                env.teleop_commands[1] = SPEED
+            elif last_key == 'x':  # Atrás
+                env.teleop_commands[1] = -SPEED
+            elif last_key == 'd':  # Derecha
+                env.teleop_commands[0] = SPEED
+            elif last_key == 'a':  # Izquierda
+                env.teleop_commands[0] = -SPEED
+            elif last_key == 'q':  # Rotación izquierda
+                env.teleop_commands[2] = SPEED
+            elif last_key == 'e':  # Rotación derecha
+                env.teleop_commands[2] = -SPEED
+            elif last_key == 's':  # Rotación derecha
+                env.teleop_commands = [0, 0, 0]    
+
+            print(env.teleop_commands)
+
+            last_key = None  # Reinicia la variable después de procesarla
         actions = policy(obs.detach())
         obs, _, rews, dones, infos = env.step(actions.detach())
         if RECORD_FRAMES:
@@ -114,8 +152,15 @@ def play(args):
             logger.print_rewards()
 
 if __name__ == '__main__':
+    # Configurar el listener del teclado
+    teleop = True
+    if teleop:
+        keyboard_thread = threading.Thread(target=start_keyboard_listener, daemon=True)
+        keyboard_thread.start()
+        # Variable global para almacenar el último comando del teclado
+        last_key = None
     EXPORT_POLICY = True
     RECORD_FRAMES = False
     MOVE_CAMERA = False
     args = get_args()
-    play(args)
+    play(args, teleop)
