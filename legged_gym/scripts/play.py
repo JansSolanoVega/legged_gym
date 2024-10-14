@@ -93,7 +93,7 @@ def play(args, teleop):
     img_idx = 0
 
     for i in range(10*int(env.max_episode_length)):
-        if last_key and teleop:
+        if teleop and last_key:
 
             if last_key == 'w':  # Adelante
                 env.teleop_commands[1] = SPEED
