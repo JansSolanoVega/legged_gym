@@ -41,6 +41,10 @@ from .a1.a1_config import A1RoughCfg, A1RoughCfgPPO
 from .hybriped.hybriped_rough_config import HybripedRoughCfg, HybripedRoughCfgPPO
 from .hybriped.hybriped_flat_config import HybripedCFlatCfg, HybripedFlatCfgPPO
 
+from .hybriped.wheeled_legged_robot import Wheeled_hybriped
+from .hybriped.hybriped_rough_config_wheeled import WheeledHybripedRoughCfg, WheeledHybripedRoughCfgPPO
+from .hybriped.hybriped_flat_config_wheeled import WheeledHybripedFlatCfg, WheeledHybripedFlatCfgPPO
+
 import os
 
 from legged_gym.utils.task_registry import task_registry
@@ -51,3 +55,5 @@ task_registry.register( "anymal_b", Anymal, AnymalBRoughCfg(), AnymalBRoughCfgPP
 task_registry.register( "a1", LeggedRobot, A1RoughCfg(), A1RoughCfgPPO() )
 task_registry.register( "cassie", Cassie, CassieRoughCfg(), CassieRoughCfgPPO() )
 task_registry.register( "hybriped_flat", LeggedRobot, HybripedCFlatCfg(), HybripedFlatCfgPPO() )
+task_registry.register( "hybriped_rough", LeggedRobot, HybripedRoughCfg(), HybripedRoughCfgPPO() )
+task_registry.register( "wheeled_hybriped_flat", Wheeled_hybriped, WheeledHybripedFlatCfg(), WheeledHybripedFlatCfgPPO() )
