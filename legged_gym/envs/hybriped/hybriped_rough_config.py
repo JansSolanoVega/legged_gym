@@ -29,6 +29,7 @@
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
 
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
+from .config import *
 
 class HybripedRoughCfg( LeggedRobotCfg ):
     class env( LeggedRobotCfg.env ):
@@ -40,23 +41,7 @@ class HybripedRoughCfg( LeggedRobotCfg ):
 
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.6] # x,y,z [m]
-        default_joint_angles = { # = target angles [rad] when action = 0.0
-            "l4_j1": 0.0,      # [rad]
-            "l4_j2": 0.9,      # [rad]
-            "l4_j3": 0.7,      # [rad]
-
-            "l3_j1": 0.0,      # [rad]
-            "l3_j2": -0.9,      # [rad]
-            "l3_j3": -0.7,      # [rad]
-
-            "l2_j1": 0.0,      # [rad]
-            "l2_j2": -0.7,      # [rad]
-            "l2_j3": -0.7,      # [rad]
-
-            "l1_j1": 0.0,      # [rad]
-            "l1_j2": 0.7,      # [rad]
-            "l1_j3": 0.7      # [rad]
-        }
+        default_joint_angles = GAIT_3
 
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
@@ -68,14 +53,14 @@ class HybripedRoughCfg( LeggedRobotCfg ):
         decimation = 4
 
     class asset( LeggedRobotCfg.asset ):
-        file = "/home/zetans/Desktop/rl_hybriped/assets/urdf/hybriped/urdf/hybriped_simplified_limits_cylinder.urdf"
+        file = "/home/zetans/Desktop/rl_hybriped/assets/urdf/hybriped/urdf/hybriped_simplified_wo_limits_cylinder.urdf"
         name = "hybriped"
         foot_name = "wheel"
         penalize_contacts_on = ["link2", "link3"]
         terminate_after_contacts_on = ["base"]
         self_collisions = 1 # 1 to disable, 0 to enable...bitwise filter
         flip_visual_attachments = False
-        use_mesh_materials = True
+        use_mesh_materials = False
 
     class domain_rand( LeggedRobotCfg.domain_rand):
         randomize_base_mass = True

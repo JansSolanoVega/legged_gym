@@ -71,4 +71,4 @@ class HybripedFlatCfgPPO( HybripedRoughCfgPPO ):
         run_name = ''
         experiment_name = 'hybriped'
         load_run = -1
-        max_iterations = 300
+        max_iterations = 500
