@@ -129,9 +129,9 @@ class FallRecoveryCfg( LeggedRobotCfg ):
 
             base_orientation_track = 5
             joint_pos_track = 0.0
-            base_height_flat = -0.5
+            base_height_flat = 0.0#-0.5
             base_pos_shift = 0.0
-            foot_contact = 0.1
+            foot_contact = 1
 
 class FallRecoveryCfgPPO(LeggedRobotCfgPPO):
     seed = 1
