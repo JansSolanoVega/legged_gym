@@ -84,3 +84,5 @@ GAIT_3_STABLE  =   { # Similar to rabbits, lateral pair of legs are mirrored aro
                 "l1_j2": 0.5,      # [rad]
                 "l1_j3": 0.7      # [rad]
             }
+
+#Orientation reward: 0.0003 to 0.5

@@ -28,55 +28,20 @@
 #
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
 
-from legged_gym import LEGGED_GYM_ROOT_DIR
-import os, json
-
-from legged_gym.envs import *
-from legged_gym.utils import  get_args, export_policy_as_jit, task_registry, Logger
-
 import numpy as np
-from tqdm import tqdm
+import os
+from datetime import datetime
 
-def play(args):
-    env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
-    # override some parameters for testing
-    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 50)
-    env_cfg.terrain.num_rows = 5
-    env_cfg.terrain.num_cols = 5
-    env_cfg.terrain.curriculum = False
-    env_cfg.noise.add_noise = False
-    env_cfg.domain_rand.randomize_friction = False
-    env_cfg.domain_rand.push_robots = False
-    env_cfg.init_state.pos = [0.0, 0.0, 1.] 
+import isaacgym
+from legged_gym.envs import *
+from legged_gym.utils import get_args, task_registry
+import torch
 
-    time_simulation = 3
-    num_falls = 100
-    
-    # prepare environment
-    env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
-    
-    file = {"base_pos": [], "base_orientation": [], "dof_pos": []}  
-    for j in tqdm(range(num_falls+1)):
-        time_prev = env.gym.get_sim_time(env.sim)
-        while (env.gym.get_sim_time(env.sim)-time_prev)<time_simulation:
-            env.step()
-            env.gym.fetch_results(env.sim, True)
-            env.gym.refresh_dof_state_tensor(env.sim)
-            env.gym.refresh_actor_root_state_tensor(env.sim)
-        if j!=0:
-            for i in range(len(env.dof_pos)):
-                file["base_pos"].append(env.root_states[i, :3].tolist())
-                file["base_orientation"].append(env.base_quat[i, :].tolist())
-                file["dof_pos"].append(env.dof_pos[i, :].tolist())
-            
-        #print(env.base_quat)
-        # print(env.dof_pos)
-        # print(env.root_states[:, :3].shape)
-        env.post_physics_step()
-
-    with open(os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'scripts', "init_poses_collected.json"), 'w') as json_file:
-        json.dump(file, json_file, indent=4)
+def train(args):
+    env, env_cfg = task_registry.make_env(name=args.task, args=args)
+    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args)
+    ppo_runner.learn(num_learning_iterations=train_cfg.runner.max_iterations, init_at_random_ep_len=True)
 
 if __name__ == '__main__':
     args = get_args()
-    play(args)
+    train(args)

@@ -41,24 +41,17 @@ from typing import Tuple, Dict
 
 from legged_gym.envs import LeggedRobot
 from legged_gym import LEGGED_GYM_ROOT_DIR
-from .hybriped_rough_config_wheeled import WheeledHybripedRoughCfg
+from .fall_recovery_config import FallRecoveryCfg
 
 import json
 
 class FallRecovery(LeggedRobot):
-    cfg : WheeledHybripedRoughCfg
+    cfg : FallRecoveryCfg
     def __init__(self, cfg, sim_params, physics_engine, sim_device, headless, teleop=False):
         super().__init__(cfg, sim_params, physics_engine, sim_device, headless, teleop)
         with open(os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'scripts', "init_poses_collected.json"), 'r') as json_file:
             self.data = json.load(json_file)
-
-    def post_physics_step(self):
-        """ check terminations, compute observations and rewards
-            calls self._post_physics_step_callback() for common computations 
-            calls self._draw_debug_vis() if needed
-        """
-        self.check_termination()
-        self.reset_idx(torch.tensor(np.arange(len(self.reset_buf))))
+        self.succesful_recoveries = 0
 
     def reset_idx(self, env_ids):
         """ Reset some environments.
@@ -77,6 +70,16 @@ class FallRecovery(LeggedRobot):
         self.collect_poses_idx_random = np.random.randint(0, len(self.data["base_pos"]), size=len(env_ids))
         self._reset_dofs(env_ids)
         self._reset_root_states(env_ids)
+
+        # reset buffers
+        self.last_actions[env_ids] = 0.
+        self.last_dof_vel[env_ids] = 0.
+        self.episode_length_buf[env_ids] = 0
+        self.reset_buf[env_ids] = 1
+
+        self.extras["episode"] = {}
+        self.extras["episode"]['Succesful recoveries'] = self.succesful_recoveries
+        
 
     def _reset_dofs(self, env_ids):
         """ Resets DOF position and velocities of selected environmments
@@ -109,24 +112,44 @@ class FallRecovery(LeggedRobot):
                                                      gymtorch.unwrap_tensor(self.root_states),
                                                      gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
               
-    def step(self):
+    def step(self, actions):
         """ Apply actions, simulate, call self.post_physics_step()
 
         Args:
             actions (torch.Tensor): Tensor of shape (num_envs, num_actions_per_env)
         """
+        clip_actions = self.cfg.normalization.clip_actions
+        self.actions = torch.clip(actions, -clip_actions, clip_actions).to(self.device)
+        # step physics and render each frame
         self.render()
         for _ in range(self.cfg.control.decimation):
+            self.torques = self._compute_torques(self.actions).view(self.torques.shape)
+            self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self.torques))
             self.gym.simulate(self.sim)
+            if self.device == 'cpu':
+                self.gym.fetch_results(self.sim, True)
             self.gym.refresh_dof_state_tensor(self.sim)
+        self.post_physics_step()
+        # return clipped obs, clipped states (None), rewards, dones and infos
+        clip_obs = self.cfg.normalization.clip_observations
+        self.obs_buf = torch.clip(self.obs_buf, -clip_obs, clip_obs)
+        return self.obs_buf, self.privileged_obs_buf, self.rew_buf, self.reset_buf, self.extras
 
     def check_termination(self):
         """ Check if environments need to be reset: Time_out or big shift in position
         """
         self.reset_buf = torch.norm(self.root_states[:, :2] - self.env_origins[:, :2], dim=1) > self.cfg.asset.distance_threshold_termination
         self.time_out_buf = self.episode_length_buf > self.max_episode_length # no terminal reward for time-outs
+        #self.standing_pose_reached = torch.logical_and(torch.norm(self.dof_pos-self.default_dof_pos, dim=-1)<self.cfg.asset.pose_error_threshold_termination, torch.abs(self.root_states[:, 2] - self.cfg.rewards.base_height_target)<self.cfg.asset.height_error_threshold_termination)
+        contact = self.contact_forces[:, self.feet_indices, 2] > 1.
+        contact_filt = torch.logical_or(contact, self.last_contacts) 
+        self.standing_pose_reached = torch.logical_and(torch.norm(self.dof_pos-self.default_dof_pos, dim=-1)<self.cfg.asset.pose_error_threshold_termination, torch.sum(contact_filt, dim=1)==4)
+        self.succesful_recoveries += torch.sum(self.standing_pose_reached).item()
+        #print(self.reset_buf, self.time_out_buf, self.standing_pose_reached)
         self.reset_buf |= self.time_out_buf
-    
+        self.reset_buf |= self.standing_pose_reached
+        
+
     def compute_observations(self):
         """ Computes observations
         """
@@ -136,29 +159,23 @@ class FallRecovery(LeggedRobot):
                                     self.dof_pos * self.obs_scales.dof_pos,
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions
-                                    ),dim=-1)
-    
-    def compute_reward(self):
-        """ Compute rewards
-            Calls each reward function which had a non-zero scale (processed in self._prepare_reward_function())
-            adds each terms to the episode sums and to the total reward
-        """
-        self.rew_buf[:] = 0.
-        for i in range(len(self.reward_functions)):
-            name = self.reward_names[i]
-            rew = self.reward_functions[i]() * self.reward_scales[name]
-            self.rew_buf += rew
-            self.episode_sums[name] += rew
-        if self.cfg.rewards.only_positive_rewards:
-            self.rew_buf[:] = torch.clip(self.rew_buf[:], min=0.)
-        # add termination reward after clipping
-        if "termination" in self.reward_scales:
-            rew = self._reward_termination() * self.reward_scales["termination"]
-            self.rew_buf += rew
-            self.episode_sums["termination"] += rew
-    
-    def _reward_base_height(self):
-        return torch.square(self.root_states[:, 2].unsqueeze(1) - self.cfg.rewards.base_height_target)
+                                    ),dim=-1)   
+        
+    def _reward_base_height_flat(self):
+        #print(torch.square(self.root_states[:, 2] - self.cfg.rewards.base_height_target))
+        return torch.square(self.root_states[:, 2] - self.cfg.rewards.base_height_target)
 
-    def _reward_joint_pos(self):
-        return torch.sum(torch.square(self.dof_pos-self.cfg.rewards.base_height_target), dim=1)
+    def _reward_joint_pos_track(self):
+        pos_track_error = torch.sum(torch.square(self.dof_pos-self.default_dof_pos), dim=1)
+        return torch.exp(-pos_track_error/self.cfg.rewards.tracking_sigma)
+    
+    def _reward_base_pos_shift(self):
+        return torch.norm(self.root_states[:, :2] - self.env_origins[:, :2], dim=-1)
+    
+    def _reward_base_orientation_track(self):
+        target_orientation = torch.zeros(self.projected_gravity.shape, device=self.device)
+        target_orientation[:, 2] = -1
+        orientation_track_error = torch.norm(target_orientation - self.projected_gravity, dim=-1)
+        #print(torch.exp(-orientation_track_error/self.cfg.rewards.tracking_sigma))
+        return torch.exp(-orientation_track_error/self.cfg.rewards.tracking_sigma)
+        
