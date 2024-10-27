@@ -85,7 +85,7 @@ class FallRecoveryCfg( LeggedRobotCfg ):
 
     class asset( LeggedRobotCfg.asset ):
         file = "/home/zetans/Desktop/rl_hybriped/assets/urdf/hybriped/urdf/hybriped_simplified_limits_cylinder_gait3_free.urdf"
-        name = "hybriped"
+        name = "hybriped_fall"
         foot_name = "wheel"
         penalize_contacts_on = ["link2", "link3"]
         self_collisions = 0 # 1 to disable, 0 to enable...bitwise filter
@@ -94,7 +94,7 @@ class FallRecoveryCfg( LeggedRobotCfg ):
 
         distance_threshold_termination = 1
         pose_error_threshold_termination = 1
-        height_error_threshold_termination = 0.1
+        height_error_threshold_termination = 0.15
 
     class domain_rand( LeggedRobotCfg.domain_rand):
         randomize_base_mass = True
@@ -120,6 +120,7 @@ class FallRecoveryCfg( LeggedRobotCfg ):
             ang_vel_xy = 0.0
             orientation = 0.0
             dof_vel = 0.0
+            feet_air_time = 0.0
             
             torques = -0.00001 #Penalize high torques
             dof_acc = -2.5e-7 #Penalize acceleration changes in joints
@@ -128,17 +129,17 @@ class FallRecoveryCfg( LeggedRobotCfg ):
 
             base_orientation_track = 5
             joint_pos_track = 0.0
-            base_height_flat = 0.0#-0.5
+            base_height_flat = -0.5
             base_pos_shift = 0.0
-            feet_air_time = 0.0
+            foot_contact = 0.1
 
 class FallRecoveryCfgPPO(LeggedRobotCfgPPO):
     seed = 1
     runner_class_name = 'OnPolicyRunner'
     class policy:
         init_noise_std = 1.0
-        actor_hidden_dims = [512, 256, 128]
-        critic_hidden_dims = [512, 256, 128]
+        actor_hidden_dims = [128, 64, 32]
+        critic_hidden_dims = [128, 64, 32]
         activation = 'elu' # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
         # only for 'ActorCriticRecurrent':
         # rnn_type = 'lstm'
@@ -149,7 +150,7 @@ class FallRecoveryCfgPPO(LeggedRobotCfgPPO):
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'PPO'
         num_steps_per_env = 24 # per iteration
-        max_iterations = 1500 # number of policy updates
+        max_iterations = 500 # number of policy updates
 
         # logging
         save_interval = 50 # check for potential saves every this many iterations

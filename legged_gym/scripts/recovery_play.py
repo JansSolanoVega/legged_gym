@@ -42,7 +42,6 @@ import threading
 SPEED = 0.5
 
 def play(args):
-    global last_key
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # override some parameters for testing
     env_cfg.env.num_envs = min(env_cfg.env.num_envs, 50)
@@ -54,7 +53,7 @@ def play(args):
     env_cfg.domain_rand.push_robots = False
 
     # prepare environment
-    env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg, teleop=teleop)
+    env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
     obs = env.get_observations()
     # load policy
     train_cfg.runner.resume = True

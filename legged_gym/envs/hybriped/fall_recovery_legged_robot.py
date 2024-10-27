@@ -67,7 +67,7 @@ class FallRecovery(LeggedRobot):
             return
         
         # reset robot states
-        self.collect_poses_idx_random = np.random.randint(0, len(self.data["base_pos"]), size=len(env_ids))
+        self.collect_poses_idx_random = np.zeros(len(env_ids), dtype=int)#np.random.randint(0, len(self.data["base_pos"]), size=len(env_ids))
         self._reset_dofs(env_ids)
         self._reset_root_states(env_ids)
 
@@ -143,8 +143,9 @@ class FallRecovery(LeggedRobot):
         #self.standing_pose_reached = torch.logical_and(torch.norm(self.dof_pos-self.default_dof_pos, dim=-1)<self.cfg.asset.pose_error_threshold_termination, torch.abs(self.root_states[:, 2] - self.cfg.rewards.base_height_target)<self.cfg.asset.height_error_threshold_termination)
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
         contact_filt = torch.logical_or(contact, self.last_contacts) 
-        self.standing_pose_reached = torch.logical_and(torch.norm(self.dof_pos-self.default_dof_pos, dim=-1)<self.cfg.asset.pose_error_threshold_termination, torch.sum(contact_filt, dim=1)==4)
-        self.succesful_recoveries += torch.sum(self.standing_pose_reached).item()
+        #self.standing_pose_reached = torch.logical_and(torch.norm(self.dof_pos-self.default_dof_pos, dim=-1)<self.cfg.asset.pose_error_threshold_termination, torch.sum(contact_filt, dim=1)==4)
+        self.standing_pose_reached = torch.logical_and(torch.abs(self.root_states[:, 2] - self.cfg.rewards.base_height_target)<self.cfg.asset.height_error_threshold_termination, torch.sum(contact_filt, dim=1)==4)
+        self.succesful_recoveries += torch.mean(self.standing_pose_reached.float()).item()
         #print(self.reset_buf, self.time_out_buf, self.standing_pose_reached)
         self.reset_buf |= self.time_out_buf
         self.reset_buf |= self.standing_pose_reached
@@ -179,3 +180,7 @@ class FallRecovery(LeggedRobot):
         #print(torch.exp(-orientation_track_error/self.cfg.rewards.tracking_sigma))
         return torch.exp(-orientation_track_error/self.cfg.rewards.tracking_sigma)
         
+    def _reward_foot_contact(self):
+        contact = self.contact_forces[:, self.feet_indices, 2] > 1.
+        contact_filt = torch.logical_or(contact, self.last_contacts) 
+        return torch.sum(contact_filt, dim=1)

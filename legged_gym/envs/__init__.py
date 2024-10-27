@@ -46,7 +46,7 @@ from .hybriped.hybriped_rough_config_wheeled import WheeledHybripedRoughCfg, Whe
 from .hybriped.hybriped_flat_config_wheeled import WheeledHybripedFlatCfg, WheeledHybripedFlatCfgPPO
 from .hybriped.collect_falls_legged_robot import CollectFall
 from .hybriped.fall_recovery_legged_robot import FallRecovery
-from .hybriped.fall_recovery_config import FallRecoveryCfg
+from .hybriped.fall_recovery_config import FallRecoveryCfg, FallRecoveryCfgPPO
 import os
 
 from legged_gym.utils.task_registry import task_registry
@@ -61,4 +61,4 @@ task_registry.register( "hybriped_rough", LeggedRobot, HybripedRoughCfg(), Hybri
 task_registry.register( "wheeled_hybriped_flat", Wheeled_hybriped, WheeledHybripedFlatCfg(), WheeledHybripedFlatCfgPPO() )
 
 task_registry.register( "fall_collect", CollectFall, HybripedCFlatCfg(), HybripedFlatCfgPPO() )
-task_registry.register( "fall_recovery", FallRecovery, FallRecoveryCfg(), HybripedFlatCfgPPO() )
+task_registry.register( "fall_recovery", FallRecovery, FallRecoveryCfg(), FallRecoveryCfgPPO() )
