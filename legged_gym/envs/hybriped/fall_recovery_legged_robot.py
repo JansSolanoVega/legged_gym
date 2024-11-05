@@ -44,6 +44,7 @@ from legged_gym import LEGGED_GYM_ROOT_DIR
 from .fall_recovery_config import FallRecoveryCfg
 
 import json
+from collections import deque
 
 class FallRecovery(LeggedRobot):
     cfg : FallRecoveryCfg
@@ -51,7 +52,9 @@ class FallRecovery(LeggedRobot):
         super().__init__(cfg, sim_params, physics_engine, sim_device, headless, teleop)
         with open(os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'scripts', "init_poses_collected.json"), 'r') as json_file:
             self.data = json.load(json_file)
-        self.succesful_recoveries = 0
+        MAX_LENGTH = int(1e3)
+        self.succesful_recoveries_buffer = deque(maxlen=MAX_LENGTH)
+        self.number_attempts_buffer = deque(maxlen=MAX_LENGTH)
 
     def reset_idx(self, env_ids):
         """ Reset some environments.
@@ -67,7 +70,8 @@ class FallRecovery(LeggedRobot):
             return
         
         # reset robot states
-        self.collect_poses_idx_random = np.zeros(len(env_ids), dtype=int)#np.random.randint(0, len(self.data["base_pos"]), size=len(env_ids))
+        #self.collect_poses_idx_random = np.zeros(len(env_ids), dtype=int)
+        self.collect_poses_idx_random = np.random.randint(0, len(self.data["base_pos"]), size=len(env_ids))
         self._reset_dofs(env_ids)
         self._reset_root_states(env_ids)
 
@@ -78,8 +82,13 @@ class FallRecovery(LeggedRobot):
         self.reset_buf[env_ids] = 1
 
         self.extras["episode"] = {}
-        self.extras["episode"]['Succesful recoveries'] = self.succesful_recoveries
+
+        if sum(self.number_attempts_buffer):
+            self.extras["episode"]['Succesful recoveries (%)'] = sum(self.succesful_recoveries_buffer) * 100 / sum(self.number_attempts_buffer)
+        else:
+            self.extras["episode"]['Succesful recoveries (%)'] = 0.0
         
+
 
     def _reset_dofs(self, env_ids):
         """ Resets DOF position and velocities of selected environmments
@@ -133,6 +142,11 @@ class FallRecovery(LeggedRobot):
         # return clipped obs, clipped states (None), rewards, dones and infos
         clip_obs = self.cfg.normalization.clip_observations
         self.obs_buf = torch.clip(self.obs_buf, -clip_obs, clip_obs)
+
+        # target_orientation = torch.zeros(self.projected_gravity.shape, device=self.device)
+        # target_orientation[:, 2] = -1
+        # orientation_track_error = torch.norm(target_orientation - self.projected_gravity, dim=-1)
+        # print(self.root_states[:, 2], self.projected_gravity, torch.exp(-orientation_track_error/self.cfg.rewards.tracking_sigma))
         return self.obs_buf, self.privileged_obs_buf, self.rew_buf, self.reset_buf, self.extras
 
     def check_termination(self):
@@ -145,11 +159,13 @@ class FallRecovery(LeggedRobot):
         contact_filt = torch.logical_or(contact, self.last_contacts) 
         #self.standing_pose_reached = torch.logical_and(torch.norm(self.dof_pos-self.default_dof_pos, dim=-1)<self.cfg.asset.pose_error_threshold_termination, torch.sum(contact_filt, dim=1)==4)
         self.standing_pose_reached = torch.logical_and(torch.abs(self.root_states[:, 2] - self.cfg.rewards.base_height_target)<self.cfg.asset.height_error_threshold_termination, torch.sum(contact_filt, dim=1)==4)
-        self.succesful_recoveries += torch.mean(self.standing_pose_reached.float()).item()
+        #self.succesful_recoveries = torch.mean(self.standing_pose_reached.float()).item()
         #print(self.reset_buf, self.time_out_buf, self.standing_pose_reached)
+        print(self.root_states[:, 2])
         self.reset_buf |= self.time_out_buf
         self.reset_buf |= self.standing_pose_reached
-        
+        self.succesful_recoveries_buffer.append(torch.sum(self.standing_pose_reached.float()).item())
+        self.number_attempts_buffer.append(torch.sum(self.reset_buf.float()).item())
 
     def compute_observations(self):
         """ Computes observations
@@ -164,11 +180,12 @@ class FallRecovery(LeggedRobot):
         
     def _reward_base_height_flat(self):
         #print(torch.square(self.root_states[:, 2] - self.cfg.rewards.base_height_target))
-        return torch.square(self.root_states[:, 2] - self.cfg.rewards.base_height_target)
+        #return torch.square(self.root_states[:, 2] - self.cfg.rewards.base_height_target)
+        return (self.projected_gravity[:, 2]<-0.7)*torch.exp(-torch.abs(self.root_states[:, 2] - self.cfg.rewards.base_height_target))
 
     def _reward_joint_pos_track(self):
-        pos_track_error = torch.sum(torch.square(self.dof_pos-self.default_dof_pos), dim=1)
-        return torch.exp(-pos_track_error/self.cfg.rewards.tracking_sigma)
+        pos_track_error = torch.sum(torch.abs(self.dof_pos-self.default_dof_pos), dim=1)
+        return (self.projected_gravity[:, 2]<-0.7)*torch.exp(-pos_track_error/5)
     
     def _reward_base_pos_shift(self):
         return torch.norm(self.root_states[:, :2] - self.env_origins[:, :2], dim=-1)
@@ -178,9 +195,19 @@ class FallRecovery(LeggedRobot):
         target_orientation[:, 2] = -1
         orientation_track_error = torch.norm(target_orientation - self.projected_gravity, dim=-1)
         #print(torch.exp(-orientation_track_error/self.cfg.rewards.tracking_sigma))
-        return torch.exp(-orientation_track_error/self.cfg.rewards.tracking_sigma)
+        #return torch.exp(-orientation_track_error/self.cfg.rewards.tracking_sigma)
+        return orientation_track_error
         
     def _reward_foot_contact(self):
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
         contact_filt = torch.logical_or(contact, self.last_contacts) 
-        return torch.sum(contact_filt, dim=1)
+        return (self.projected_gravity[:, 2]<-0.7)*torch.sum(contact_filt, dim=1)
+    
+    def _reward_termination(self):
+        # Terminal reward / penalty
+        return self.standing_pose_reached
+    
+    def _reward_up_direction(self):
+        z_direction = self.projected_gravity[:, 2]
+        #return torch.min(torch.ones(z_direction.shape, device=self.device), torch.exp(2*(-z_direction-1)))
+        return torch.exp(-z_direction-1)

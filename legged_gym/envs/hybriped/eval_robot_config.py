@@ -31,13 +31,17 @@
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 from .config import *
 
-class HybripedRoughCfg( LeggedRobotCfg ):
+class EvalRobotCfg( LeggedRobotCfg ):
     class env( LeggedRobotCfg.env ):
-        num_envs = 4096
         num_actions = 12
 
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = 'trimesh'
+        num_rows= 5 # number of terrain rows (levels)
+        num_cols = 5 # number of terrain cols (types)
+
+        terrain_type = "stairs"
+        terrain_direction_up = True
 
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.6] # x,y,z [m]
@@ -72,8 +76,15 @@ class HybripedRoughCfg( LeggedRobotCfg ):
         only_positive_rewards = True
         class scales( LeggedRobotCfg.rewards.scales ):
             pass
+    
+    class logger:
+        linear_vel = 0.75
+        perpendicular_vel_max = 0.1
+        vel_x = True
 
-class HybripedRoughCfgPPO( LeggedRobotCfgPPO ):
+        number_evaluations = 10
+
+class EvalRobotCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'hybriped'

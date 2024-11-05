@@ -34,12 +34,20 @@ from datetime import datetime
 
 import isaacgym
 from legged_gym.envs import *
-from legged_gym.utils import get_args, task_registry
+from legged_gym.utils import get_args, task_registry, helpers
 import torch
+import json, os
 
 def train(args):
     env, env_cfg = task_registry.make_env(name=args.task, args=args)
     ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args)
+    
+    folder_name = ppo_runner.log_dir
+    if not os.path.exists(folder_name):
+        os.makedirs(folder_name)
+    with open(os.path.join(folder_name, 'data.json'), 'w') as json_file:
+        json.dump(helpers.class_to_dict(env_cfg.rewards), json_file, indent=4)
+
     ppo_runner.learn(num_learning_iterations=train_cfg.runner.max_iterations, init_at_random_ep_len=True)
 
 if __name__ == '__main__':

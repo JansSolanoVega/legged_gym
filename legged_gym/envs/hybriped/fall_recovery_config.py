@@ -87,14 +87,14 @@ class FallRecoveryCfg( LeggedRobotCfg ):
         file = "/home/zetans/Desktop/rl_hybriped/assets/urdf/hybriped/urdf/hybriped_simplified_limits_cylinder_gait3_free.urdf"
         name = "hybriped_fall"
         foot_name = "wheel"
-        penalize_contacts_on = ["link2", "link3"]
+        penalize_contacts_on = ["base_link"]
         self_collisions = 0 # 1 to disable, 0 to enable...bitwise filter
         flip_visual_attachments = False
-        use_mesh_materials = False
+        use_mesh_materials = True
 
         distance_threshold_termination = 1
         pose_error_threshold_termination = 1
-        height_error_threshold_termination = 0.15
+        height_error_threshold_termination = 0.05
 
     class domain_rand( LeggedRobotCfg.domain_rand):
         randomize_base_mass = True
@@ -107,13 +107,13 @@ class FallRecoveryCfg( LeggedRobotCfg ):
 
     class rewards( LeggedRobotCfg.rewards ):
         max_contact_force = 350.
-        base_height_target = 0.55
+        base_height_target = 0.6
         only_positive_rewards = False
         class scales ( LeggedRobotCfg.rewards.scales ):
             base_height = 0.0 
             feet_stumble = 0.0 
             stand_still = 0.0
-            termination = 0.0
+            termination = 0.0#-0.1
             tracking_lin_vel = 0.0
             tracking_ang_vel = 0.0
             lin_vel_z = 0.0
@@ -122,16 +122,17 @@ class FallRecoveryCfg( LeggedRobotCfg ):
             dof_vel = 0.0
             feet_air_time = 0.0
             
-            torques = -0.00001 #Penalize high torques
+            collision = 0.0#-0.1
+            torques = 0.0#-0.00001 #Penalize high torques
             dof_acc = -2.5e-7 #Penalize acceleration changes in joints
-            collision = -1.
             action_rate = -0.01 #Penalize huge changes in actions
 
-            base_orientation_track = 5
-            joint_pos_track = 0.0
-            base_height_flat = 0.0#-0.5
+            base_orientation_track = 0.0#-5
+            joint_pos_track = 10.0
+            base_height_flat = 0.0#4.0
             base_pos_shift = 0.0
-            foot_contact = 1
+            foot_contact = 0.0#0.1
+            up_direction = 5.0
 
 class FallRecoveryCfgPPO(LeggedRobotCfgPPO):
     seed = 1
@@ -150,7 +151,7 @@ class FallRecoveryCfgPPO(LeggedRobotCfgPPO):
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'PPO'
         num_steps_per_env = 24 # per iteration
-        max_iterations = 500 # number of policy updates
+        max_iterations = 1000 # number of policy updates
 
         # logging
         save_interval = 50 # check for potential saves every this many iterations
