@@ -87,13 +87,14 @@ class Terrain_Eval(Terrain):
                                 length=self.width_per_env_pixels,
                                 vertical_scale=self.cfg.vertical_scale,
                                 horizontal_scale=self.cfg.horizontal_scale)
-                slope = np.random.uniform(SLOPE_LIMITS[0], SLOPE_LIMITS[1])
-                height = np.random.uniform(STEP_HEIGHT_LIMITS[0], STEP_HEIGHT_LIMITS[1])
                 if terrain_type=="slope":
+                    slope = np.random.uniform(SLOPE_LIMITS[0], SLOPE_LIMITS[1])
                     terrain_utils.pyramid_sloped_terrain(terrain, slope=(int)(up>0)*slope, platform_size=3.)
                 elif terrain_type=="stairs":
+                    height = np.random.uniform(STEP_HEIGHT_LIMITS[0], STEP_HEIGHT_LIMITS[1])
                     terrain_utils.pyramid_stairs_terrain(terrain, step_width=step_width, step_height=(int)(up>0)*height, platform_size=3.)
                 elif terrain_type=="discrete":
+                    height = np.random.uniform(STEP_HEIGHT_LIMITS[0], STEP_HEIGHT_LIMITS[1])
                     terrain_utils.discrete_obstacles_terrain(terrain, height, rectangle_min_size, rectangle_max_size, num_rectangles, platform_size=3.)
                 self.add_terrain_to_map(terrain, i, j)
 
@@ -104,7 +105,7 @@ class Terrain_Eval(Terrain):
                 self.info[-1]["slope"] = slope
                 self.info[-1]["direction"] = "up" if up else "down"
                 self.info[-1]["successful"] = 0; self.info[-1]["total"] = 0 
-                
+                self.info[-1]["vel_x"] = [[]]; self.info[-1]["vel_y"] = [[]]
         return terrain
 
     def create_sloped_terrain(self, slope):

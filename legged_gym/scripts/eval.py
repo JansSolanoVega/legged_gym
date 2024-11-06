@@ -36,13 +36,19 @@ from legged_gym.envs import *
 from legged_gym.utils import  get_args, export_policy_as_jit, task_registry, Logger
 
 import numpy as np
-import torch
+import torch, json
 
 def env_not_finished(env):
     for i in range(env.terrain_solved.shape[0]):
         if env.info[i]["total"] < env.cfg.logger.number_evaluations:
             return True
     return False
+
+def log_data(env):
+    fname = env.cfg.terrain.terrain_type+"-"+str(env.cfg.terrain.terrain_direction_up)+"-"+str(env.cfg.logger.linear_vel)+"-"+str(env.cfg.logger.perpendicular_vel_max)+"-"+str(env.cfg.logger.vel_x)
+    with open(os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'scripts',fname+'.json'), 'w') as json_file:
+        json.dump(env.info, json_file, indent=4)
+
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # override some parameters for testing
@@ -98,7 +104,7 @@ def play(args):
         elif i==stop_rew_log:
             logger.print_rewards()
         i+=1
-    print(env.info)
+    log_data(env)
 
 if __name__ == '__main__':
     args = get_args()
