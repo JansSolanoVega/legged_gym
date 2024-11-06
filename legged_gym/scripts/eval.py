@@ -37,12 +37,24 @@ from legged_gym.utils import  get_args, export_policy_as_jit, task_registry, Log
 
 import numpy as np
 import torch, json
+from tqdm import tqdm
 
-def env_not_finished(env):
+mini_prev = 0
+
+def env_not_finished(env, pbar):
+    global mini_prev
+    if mini_prev != min_total_evaluations(env):
+        mini_prev = min_total_evaluations(env)
+        pbar.update()
+
+    return mini_prev< env.cfg.logger.number_evaluations
+
+
+def min_total_evaluations(env):
+    mini = float("inf")
     for i in range(env.terrain_solved.shape[0]):
-        if env.info[i]["total"] < env.cfg.logger.number_evaluations:
-            return True
-    return False
+        mini = min(mini, env.info[i]["total"])
+    return mini
 
 def log_data(env):
     fname = env.cfg.terrain.terrain_type+"-"+str(env.cfg.terrain.terrain_direction_up)+"-"+str(env.cfg.logger.linear_vel)+"-"+str(env.cfg.logger.perpendicular_vel_max)+"-"+str(env.cfg.logger.vel_x)
@@ -71,9 +83,9 @@ def play(args):
     joint_index = 1 # which joint is used for logging
     stop_state_log = 100 # number of steps before plotting states
     stop_rew_log = env.max_episode_length + 1 # number of steps before print average episode rewards
-    i=0
+    i=0; pbar = tqdm(total=env.cfg.logger.number_evaluations)
 
-    while env_not_finished(env):
+    while env_not_finished(env, pbar):
         actions = policy(obs.detach())
         obs, _, rews, dones, infos = env.step(actions.detach())
 
