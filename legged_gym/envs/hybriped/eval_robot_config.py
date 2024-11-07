@@ -38,13 +38,21 @@ class EvalRobotCfg( LeggedRobotCfg ):
 
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = 'trimesh'
-        num_rows= 20 # number of terrain rows (levels)
-        num_cols = 20 # number of terrain cols (types)
+        num_rows= 1 # number of terrain rows (levels)
+        num_cols = 1 # number of terrain cols (types)
 
-        terrain_type = "discrete"
+        terrain_type = "plane"
         terrain_direction_up = None
         
         slope_treshold = 1.732
+
+        min_height = 0.05
+        max_height = 0.40
+
+        step_width = 0.31
+        num_rectangles = 20
+        rectangle_min_size = 1.
+        rectangle_max_size = 2.
 
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.6] # x,y,z [m]
@@ -85,7 +93,7 @@ class EvalRobotCfg( LeggedRobotCfg ):
         perpendicular_vel_max = linear_vel/10
         vel_x = False
 
-        number_evaluations = 50
+        number_evaluations = 100
 
 class EvalRobotCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):

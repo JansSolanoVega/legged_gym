@@ -47,6 +47,11 @@ class Terrain_Eval(Terrain):
         self.env_length = cfg.terrain_length
         self.env_width = cfg.terrain_width
 
+        self.step_width = cfg.step_width
+        self.num_rectangles = cfg.num_rectangles
+        self.rectangle_min_size = cfg.rectangle_min_size 
+        self.rectangle_max_size = cfg.rectangle_max_size 
+
         self.cfg.num_sub_terrains = cfg.num_rows * cfg.num_cols
         self.env_origins = np.zeros((cfg.num_rows, cfg.num_cols, 3))
 
@@ -69,15 +74,6 @@ class Terrain_Eval(Terrain):
                                                                                             self.cfg.vertical_scale,
                                                                                             self.cfg.slope_treshold)
     def create_random_terrain(self, terrain_type="slope", up=1):
-        SLOPE_LIMITS = [0, self.cfg.slope_treshold]
-        STEP_HEIGHT_LIMITS = [0.05, 0.40]
-
-        step_width=0.31
-
-        num_rectangles = 20
-        rectangle_min_size = 1.
-        rectangle_max_size = 2.
-
         slope = None
         height = None
 
@@ -89,14 +85,18 @@ class Terrain_Eval(Terrain):
                                 vertical_scale=self.cfg.vertical_scale,
                                 horizontal_scale=self.cfg.horizontal_scale)
                 if terrain_type=="slope":
-                    slope = np.random.uniform(SLOPE_LIMITS[0], SLOPE_LIMITS[1])
+                    slope = np.random.uniform(0, self.cfg.slope_treshold)
                     terrain_utils.pyramid_sloped_terrain(terrain, slope=(2*(int)(up>0)-1)*slope, platform_size=3.)
                 elif terrain_type=="stairs":
-                    height = np.random.uniform(STEP_HEIGHT_LIMITS[0], STEP_HEIGHT_LIMITS[1])
-                    terrain_utils.pyramid_stairs_terrain(terrain, step_width=step_width, step_height=(2*(int)(up>0)-1)*height, platform_size=3.)
+                    height = np.random.uniform(self.cfg.min_height, self.cfg.max_height)
+                    terrain_utils.pyramid_stairs_terrain(terrain, step_width=self.step_width, step_height=(2*(int)(up>0)-1)*height, platform_size=3.)
                 elif terrain_type=="discrete":
-                    height = np.random.uniform(STEP_HEIGHT_LIMITS[0], STEP_HEIGHT_LIMITS[1])
-                    terrain_utils.discrete_obstacles_terrain(terrain, height, rectangle_min_size, rectangle_max_size, num_rectangles, platform_size=3.)
+                    height = np.random.uniform(self.cfg.min_height, self.cfg.max_height)
+                    terrain_utils.discrete_obstacles_terrain(terrain, height, self.rectangle_min_size, self.rectangle_max_size, self.num_rectangles, platform_size=3.)
+                elif terrain_type=="plane":
+                    slope = 0
+                    terrain_utils.pyramid_sloped_terrain(terrain, slope=slope, platform_size=3.)
+
                 self.add_terrain_to_map(terrain, j, i)
                 self.info.append(dict())
                 self.info[-1]["row_col"] = (i, j)
