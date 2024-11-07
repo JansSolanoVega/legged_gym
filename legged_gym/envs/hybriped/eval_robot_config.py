@@ -34,14 +34,17 @@ from .config import *
 class EvalRobotCfg( LeggedRobotCfg ):
     class env( LeggedRobotCfg.env ):
         num_actions = 12
+        episode_length_s = 40 
 
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = 'trimesh'
-        num_rows= 10 # number of terrain rows (levels)
-        num_cols = 10 # number of terrain cols (types)
+        num_rows= 20 # number of terrain rows (levels)
+        num_cols = 20 # number of terrain cols (types)
 
-        terrain_type = "slope"
-        terrain_direction_up = True
+        terrain_type = "discrete"
+        terrain_direction_up = None
+        
+        slope_treshold = 1.732
 
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.6] # x,y,z [m]
@@ -79,10 +82,10 @@ class EvalRobotCfg( LeggedRobotCfg ):
     
     class logger:
         linear_vel = 0.75
-        perpendicular_vel_max = 0.1
-        vel_x = True
+        perpendicular_vel_max = linear_vel/10
+        vel_x = False
 
-        number_evaluations = 100
+        number_evaluations = 50
 
 class EvalRobotCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):

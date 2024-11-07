@@ -99,11 +99,11 @@ class EvalRobot(LeggedRobot):
     def check_termination(self):
         """ Check if environments need to be reset
         """
-        self.reset_buf = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1., dim=1)
+        #self.reset_buf = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1., dim=1)
+        self.reset_buf = torch.logical_or(self.projected_gravity[:, 2] > 0, self.episode_length_buf > self.max_episode_length)
         distance_xy = torch.abs(self.root_states[:, :2] - self.env_origins[:, :2])
         self.terrain_solved = torch.logical_or(distance_xy[:, 0]>self.terrain.env_length / 2, distance_xy[:, 1]>self.terrain.env_length / 2) 
         self.reset_buf |= self.terrain_solved
-
         for i in range(self.terrain_solved.shape[0]):
             if self.info[i]["total"] < self.cfg.logger.number_evaluations:
                 self.info[i]["vel_x"][-1].append(self.base_lin_vel[i, 0].item())
