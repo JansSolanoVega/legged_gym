@@ -84,9 +84,9 @@ class Wheeled_hybriped(LeggedRobot):
                                     self.base_ang_vel  * self.obs_scales.ang_vel,
                                     self.projected_gravity,
                                     self.commands[:, :3] * self.commands_scale,
-                                    (self.dof_pos[:, self.dof_idxs] - self.default_dof_pos[:, self.dof_idxs]) * self.obs_scales.dof_pos,
-                                    self.dof_vel[:, self.dof_idxs] * self.obs_scales.dof_vel,
-                                    self.actions[:, self.dof_idxs]
+                                    (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
+                                    self.dof_vel * self.obs_scales.dof_vel,
+                                    self.actions
                                     ),dim=-1)
         # add perceptive inputs if not blind
         if self.cfg.terrain.measure_heights:
@@ -96,15 +96,25 @@ class Wheeled_hybriped(LeggedRobot):
         if self.add_noise:
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) - 1) * self.noise_scale_vec
             
-    def _compute_torques_wheels(self):
+    def _compute_torques(self, actions):
+        """ Compute torques from actions.
+            Actions can be interpreted as position or velocity targets given to a PD controller, or directly as scaled torques.
+            [NOTE]: torques must have the same dimension as the number of DOFs, even if some DOFs are not actuated.
+
+        Args:
+            actions (torch.Tensor): Actions
+
+        Returns:
+            [torch.Tensor]: Torques sent to the simulation
+        """
         #pd controller
-        actions_scaled = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device, requires_grad=False)
+        actions_scaled = actions * self.cfg.control.action_scale
+
+        torques = torch.zeros(actions_scaled.shape, device=self.device)
+        torques[:, self.dof_idxs] = self.p_gains[self.dof_idxs]*(actions_scaled[:, self.dof_idxs] + self.default_dof_pos.squeeze()[self.dof_idxs] - self.dof_pos[:, self.dof_idxs]) - self.d_gains[self.dof_idxs]*self.dof_vel[:, self.dof_idxs]
+        torques[:, self.wheel_idxs] = self.p_gains[self.wheel_idxs]*(actions_scaled[:, self.wheel_idxs] - self.dof_vel[:, self.wheel_idxs]) - self.d_gains[self.wheel_idxs]*(self.dof_vel[:, self.wheel_idxs] - self.last_dof_vel[:, self.wheel_idxs])/self.sim_params.dt
         
-        torques = self.p_gain_wheel*(actions_scaled - self.dof_pos[:, self.wheel_idxs]) - self.d_gain_wheel*self.dof_vel[:, self.wheel_idxs]
-        # torques = self.p_gain_wheel*(actions_scaled - self.dof_vel[:, self.wheel_idxs]) - self.d_gain_wheel*(self.dof_vel[:, self.wheel_idxs] - self.last_dof_vel[:, self.wheel_idxs])/self.sim_params.dt
-        
-        print(self.dof_pos[:, self.wheel_idxs])
-        return torch.clip(torques, -self.torque_limits[self.wheel_idxs], self.torque_limits[self.wheel_idxs])
+        return torch.clip(torques, -self.torque_limits, self.torque_limits)
         
     def step(self, actions):
         """ Apply actions, simulate, call self.post_physics_step()
@@ -116,7 +126,6 @@ class Wheeled_hybriped(LeggedRobot):
         self.actions = torch.clip(actions, -clip_actions, clip_actions).to(self.device)
         # step physics and render each frame
         self.render()
-        print(len(self.dof_idxs))
         for _ in range(self.cfg.control.decimation):
             #torques_wheels = self._compute_torques_wheels()
             self.torques = self._compute_torques(self.actions).view(self.torques.shape)

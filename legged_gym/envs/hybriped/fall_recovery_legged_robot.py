@@ -52,9 +52,12 @@ class FallRecovery(LeggedRobot):
         super().__init__(cfg, sim_params, physics_engine, sim_device, headless, teleop)
         with open(os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'scripts', "init_poses_collected.json"), 'r') as json_file:
             self.data = json.load(json_file)
-        MAX_LENGTH = int(1e3)
+        MAX_LENGTH = int(1e4)
         self.succesful_recoveries_buffer = deque(maxlen=MAX_LENGTH)
         self.number_attempts_buffer = deque(maxlen=MAX_LENGTH)
+
+        self.info = {"successful": 0, "total": 0, "duration": 0}
+        self.step_count = np.zeros(self.num_envs)
 
     def reset_idx(self, env_ids):
         """ Reset some environments.
@@ -158,14 +161,21 @@ class FallRecovery(LeggedRobot):
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
         contact_filt = torch.logical_or(contact, self.last_contacts) 
         #self.standing_pose_reached = torch.logical_and(torch.norm(self.dof_pos-self.default_dof_pos, dim=-1)<self.cfg.asset.pose_error_threshold_termination, torch.sum(contact_filt, dim=1)==4)
-        self.standing_pose_reached = torch.logical_and(torch.abs(self.root_states[:, 2] - self.cfg.rewards.base_height_target)<self.cfg.asset.height_error_threshold_termination, torch.sum(contact_filt, dim=1)==4)
+        self.standing_pose_reached = torch.logical_and(torch.sum(contact_filt, dim=1)>=3, self.projected_gravity[:, 2]<-0.7)#torch.logical_and(torch.abs(self.root_states[:, 2] - self.cfg.rewards.base_height_target)<self.cfg.asset.height_error_threshold_termination, torch.sum(contact_filt, dim=1)==4)
         #self.succesful_recoveries = torch.mean(self.standing_pose_reached.float()).item()
         #print(self.reset_buf, self.time_out_buf, self.standing_pose_reached)
-        print(self.root_states[:, 2])
         self.reset_buf |= self.time_out_buf
         self.reset_buf |= self.standing_pose_reached
         self.succesful_recoveries_buffer.append(torch.sum(self.standing_pose_reached.float()).item())
         self.number_attempts_buffer.append(torch.sum(self.reset_buf.float()).item())
+
+        for i in range(self.standing_pose_reached.shape[0]):
+            self.info["successful"] += int(self.standing_pose_reached[i])
+            self.info["total"] += int(self.reset_buf[i])
+            self.step_count[i] += 1
+            if self.standing_pose_reached[i]:
+                self.info["duration"] += self.dt * self.step_count[i]
+                self.step_count[i] = 0
 
     def compute_observations(self):
         """ Computes observations

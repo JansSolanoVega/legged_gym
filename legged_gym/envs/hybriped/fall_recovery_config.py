@@ -107,7 +107,7 @@ class FallRecoveryCfg( LeggedRobotCfg ):
 
     class rewards( LeggedRobotCfg.rewards ):
         max_contact_force = 350.
-        base_height_target = 0.6
+        base_height_target = 0.65
         only_positive_rewards = False
         class scales ( LeggedRobotCfg.rewards.scales ):
             base_height = 0.0 
@@ -123,9 +123,9 @@ class FallRecoveryCfg( LeggedRobotCfg ):
             feet_air_time = 0.0
             
             collision = 0.0#-0.1
-            torques = 0.0#-0.00001 #Penalize high torques
+            torques = -0.00001 #Penalize high torques
             dof_acc = -2.5e-7 #Penalize acceleration changes in joints
-            action_rate = -0.01 #Penalize huge changes in actions
+            action_rate = -0.1 #Penalize huge changes in actions
 
             base_orientation_track = 0.0#-5
             joint_pos_track = 10.0

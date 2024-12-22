@@ -64,8 +64,8 @@ class Terrain_Eval(Terrain):
 
         self.height_field_raw = np.zeros((self.tot_rows , self.tot_cols), dtype=np.int16)
         
-        #self.create_sloped_terrain(slope=1.73)
-        self.create_random_terrain(terrain_type=self.cfg.terrain_type, up=self.cfg.terrain_direction_up)
+        self.create_sloped_terrain(slope=0.83)
+        #self.create_random_terrain(terrain_type=self.cfg.terrain_type, up=self.cfg.terrain_direction_up)
         
         self.heightsamples = self.height_field_raw
         if self.type=="trimesh":

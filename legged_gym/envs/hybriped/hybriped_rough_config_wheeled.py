@@ -95,10 +95,14 @@ class WheeledHybripedRoughCfg( LeggedRobotCfg ):
         max_contact_force = 500.
         only_positive_rewards = True
         class scales( LeggedRobotCfg.rewards.scales ):
+            #dof_acc = 0#-2.5e-7
+            #action_rate = 0#-0.01
+            #torques = 0#
+            feet_air_time =  2
             pass
 
 class WheeledHybripedRoughCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
-        experiment_name = 'hybriped'
+        experiment_name = 'hybriped_wheeled'
         load_run = -1

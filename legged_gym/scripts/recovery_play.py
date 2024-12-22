@@ -77,8 +77,14 @@ def play(args):
     img_idx = 0
 
     for i in range(100*int(env.max_episode_length)):
+        if (env.info["total"]>=1000):
+            print("Accuracy:", 100*env.info["successful"]/env.info["total"])
+            print("Average time:", env.info["duration"]/env.info["successful"])
+            break
+
         actions = policy(obs.detach())
         obs, _, rews, dones, infos = env.step(actions.detach())
+
         if RECORD_FRAMES:
             if i % 2:
                 filename = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'frames', f"{img_idx}.png")

@@ -44,10 +44,11 @@ class HybripedCFlatCfg(HybripedRoughCfg ):
     class rewards( HybripedRoughCfg.rewards ):
         max_contact_force = 350.
         class scales ( HybripedRoughCfg.rewards.scales ):
-            orientation = -5.0
-            torques = -0.000025
-            feet_air_time = 2.
+            # orientation = -5.0
+            # torques = -0.000025
+            # feet_air_time = 2.
             # feet_contact_forces = -0.01
+            pass
     
     class commands( HybripedRoughCfg.commands ):
         heading_command = False

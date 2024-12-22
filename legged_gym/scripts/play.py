@@ -153,7 +153,7 @@ def play(args, teleop):
 
 if __name__ == '__main__':
     # Configurar el listener del teclado
-    teleop = True
+    teleop = False
     if teleop:
         keyboard_thread = threading.Thread(target=start_keyboard_listener, daemon=True)
         keyboard_thread.start()

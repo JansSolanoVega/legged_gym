@@ -32,7 +32,7 @@ from .hybriped_rough_config_wheeled import WheeledHybripedRoughCfg, WheeledHybri
 
 class WheeledHybripedFlatCfg(WheeledHybripedRoughCfg ):
     class env( WheeledHybripedRoughCfg.env ):
-        num_observations = 48
+        num_observations = 60
   
     class terrain( WheeledHybripedRoughCfg.terrain ):
         mesh_type = 'plane'
@@ -44,10 +44,11 @@ class WheeledHybripedFlatCfg(WheeledHybripedRoughCfg ):
     class rewards( WheeledHybripedRoughCfg.rewards ):
         max_contact_force = 350.
         class scales ( WheeledHybripedRoughCfg.rewards.scales ):
-            orientation = -5.0
-            torques = -0.000025
-            feet_air_time = 2.
+            # orientation = -5.0
+            # torques = -0.000025
+            # feet_air_time = 2.
             # feet_contact_forces = -0.01
+            pass
     
     class commands( WheeledHybripedRoughCfg.commands ):
         heading_command = False
@@ -69,6 +70,5 @@ class WheeledHybripedFlatCfgPPO( WheeledHybripedRoughCfgPPO ):
 
     class runner ( WheeledHybripedRoughCfgPPO.runner):
         run_name = ''
-        experiment_name = 'hybriped'
         load_run = -1
-        max_iterations = 300
+        max_iterations = 750

@@ -41,8 +41,8 @@ class EvalRobotCfg( LeggedRobotCfg ):
         num_rows= 1 # number of terrain rows (levels)
         num_cols = 1 # number of terrain cols (types)
 
-        terrain_type = "plane"
-        terrain_direction_up = None
+        terrain_type = "slope"
+        terrain_direction_up = False
         
         slope_treshold = 1.732
 
@@ -75,7 +75,7 @@ class EvalRobotCfg( LeggedRobotCfg ):
         terminate_after_contacts_on = ["base"]
         self_collisions = 0 # 1 to disable, 0 to enable...bitwise filter
         flip_visual_attachments = False
-        use_mesh_materials = False
+        use_mesh_materials = True
 
     class domain_rand( LeggedRobotCfg.domain_rand):
         randomize_base_mass = True
