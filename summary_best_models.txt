@@ -1,0 +1,15 @@
+Best models:
+-recovery behaviour: 
+	.Command: python recovery_play.py --task=fall_recovery --load_run=Nov08_23-18-02_stable
+	.Comments: Only working for GAIT3_STABLE
+-Rough terrain:
+	.GAIT3: python play.py --task=hybriped_rough --load_run=Oct22_17-38-27_Mesh_Cylinder_MultiTerrain_GAIT3_free_Autocollision
+		.Change to GAIT_3_STABLE
+	.GAIT1: python play.py --task=hybriped_rough --load_run=Oct22_18-33-47_Mesh_Cylinder_MultiTerrain_GAIT1_free_Autocollision
+ 		.Change to GAIT_1
+-Flat terrain: 
+	.GAIT3: python play.py --task=hybriped_flat --load_run=Nov08_10-37-09_flat-gait-3
+
+Eval script:
+-Hybriped rough locom: python eval.py --task=eval_robot --headless --load_run=Mar18_21-09-02_rough_torqueLimit28
+

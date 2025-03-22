@@ -71,4 +71,4 @@ class WheeledHybripedFlatCfgPPO( WheeledHybripedRoughCfgPPO ):
     class runner ( WheeledHybripedRoughCfgPPO.runner):
         run_name = ''
         load_run = -1
-        max_iterations = 750
+        max_iterations = 2000

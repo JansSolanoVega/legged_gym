@@ -127,11 +127,8 @@ class Wheeled_hybriped(LeggedRobot):
         # step physics and render each frame
         self.render()
         for _ in range(self.cfg.control.decimation):
-            #torques_wheels = self._compute_torques_wheels()
             self.torques = self._compute_torques(self.actions).view(self.torques.shape)
-            #self.torques[:, self.wheel_idxs] = 0
             self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self.torques))
-            #self.gym.set_dof_actuation_force_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self.torques), gymtorch.unwrap_tensor(torch.tensor(self.dof_idxs)), len(self.dof_idxs))
             self.gym.simulate(self.sim)
             if self.device == 'cpu':
                 self.gym.fetch_results(self.sim, True)
@@ -143,4 +140,28 @@ class Wheeled_hybriped(LeggedRobot):
         if self.privileged_obs_buf is not None:
             self.privileged_obs_buf = torch.clip(self.privileged_obs_buf, -clip_obs, clip_obs)
         return self.obs_buf, self.privileged_obs_buf, self.rew_buf, self.reset_buf, self.extras
-        
+    
+    def _reward_joint_pos_track(self):
+        pos_track_error = torch.sum(torch.abs(self.dof_pos[:, self.dof_idxs]-self.default_dof_pos.squeeze()[self.dof_idxs]), dim=1)
+        return torch.exp(-pos_track_error/5)
+
+    def _reward_wheel_acc(self):
+        # Penalize dof accelerations
+        return torch.sum(torch.square((self.last_dof_vel[:, self.wheel_idxs] - self.dof_vel[:, self.wheel_idxs]) / self.dt), dim=1)
+
+    def _reward_action_rate_wheel(self):
+        # Penalize changes in actions
+        return torch.sum(torch.square(self.last_actions[:, self.wheel_idxs] - self.actions[:, self.wheel_idxs]), dim=1)
+
+    def _reward_torques_leg(self):
+        # Penalize torques
+        return torch.sum(torch.square(self.torques[:, self.dof_idxs]), dim=1)
+    
+    def _reward_dof_acc_leg(self):
+        # Penalize dof accelerations
+        return torch.sum(torch.square((self.last_dof_vel[:, self.dof_idxs] - self.dof_vel[:, self.dof_idxs]) / self.dt), dim=1)
+    
+    def _reward_action_rate_leg(self):
+        # Penalize changes in actions
+        return torch.sum(torch.square(self.last_actions[:, self.dof_idxs] - self.actions[:, self.dof_idxs]), dim=1)
+    

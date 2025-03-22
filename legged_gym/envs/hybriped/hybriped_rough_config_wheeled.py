@@ -29,6 +29,7 @@
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
 
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
+from .config import *
 
 class WheeledHybripedRoughCfg( LeggedRobotCfg ):
     class env( LeggedRobotCfg.env ):
@@ -38,29 +39,36 @@ class WheeledHybripedRoughCfg( LeggedRobotCfg ):
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = 'trimesh'
 
+    class commands( LeggedRobotCfg.commands ):
+        class ranges ( LeggedRobotCfg.commands.ranges ):
+            lin_vel_y = [0.0, 0.0]   # min max [m/s]
+
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.6] # x,y,z [m]
-        default_joint_angles = { # = target angles [rad] when action = 0.0
-            "l4_j1": 0.0,      # [rad]
-            "l4_j2": 0.9,      # [rad]
-            "l4_j3": 0.7,      # [rad]
-            "l4_wheel": 0.0,      # [rad]
+        # default_joint_angles = { # = target angles [rad] when action = 0.0
+        #     "l4_j1": 0.0,      # [rad]
+        #     "l4_j2": 0.9,      # [rad]
+        #     "l4_j3": 0.7,      # [rad]
+        #     "l4_wheel": 0.0,      # [rad]
 
-            "l3_j1": 0.0,      # [rad]
-            "l3_j2": -0.9,      # [rad]
-            "l3_j3": -0.7,      # [rad]
-            "l3_wheel": 0.0,      # [rad]
+        #     "l3_j1": 0.0,      # [rad]
+        #     "l3_j2": -0.9,      # [rad]
+        #     "l3_j3": -0.7,      # [rad]
+        #     "l3_wheel": 0.0,      # [rad]
 
-            "l2_j1": 0.0,      # [rad]
-            "l2_j2": -0.7,      # [rad]
-            "l2_j3": -0.7,      # [rad]
-            "l2_wheel": 0.0,      # [rad]
+        #     "l2_j1": 0.0,      # [rad]
+        #     "l2_j2": -0.7,      # [rad]
+        #     "l2_j3": -0.7,      # [rad]
+        #     "l2_wheel": 0.0,      # [rad]
 
-            "l1_j1": 0.0,      # [rad]
-            "l1_j2": 0.7,      # [rad]
-            "l1_j3": 0.7,      # [rad]
-            "l1_wheel": 0.0      # [rad]
-        }
+        #     "l1_j1": 0.0,      # [rad]
+        #     "l1_j2": 0.7,      # [rad]
+        #     "l1_j3": 0.7,      # [rad]
+        #     "l1_wheel": 0.0      # [rad]
+        # }
+        default_joint_angles = GAIT_3_STABLE
+        default_joint_angles["l1_wheel"]=0.0; default_joint_angles["l2_wheel"]=0.0
+        default_joint_angles["l3_wheel"]=0.0; default_joint_angles["l4_wheel"]=0.0
 
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
@@ -68,8 +76,8 @@ class WheeledHybripedRoughCfg( LeggedRobotCfg ):
         damping = {'j1': 4., 'j2': 4., 'j3': 4.}     # [N*m*s/rad]
 
         # PD parameters for wheels
-        stiffness_wheel = 100
-        damping_wheel = 4
+        stiffness_wheel = 0.1#0.0001
+        damping_wheel = 0#0.001
 
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.5
@@ -77,7 +85,7 @@ class WheeledHybripedRoughCfg( LeggedRobotCfg ):
         decimation = 4
 
     class asset( LeggedRobotCfg.asset ):
-        file = "/home/zetans/Desktop/rl_hybriped/assets/urdf/hybriped/urdf/hybriped_simplified_limits_cylinder_wheeled.urdf"
+        file = "/home/zetans/Desktop/rl_hybriped/assets/urdf/hybriped/urdf/hybriped_simplified_wo_limits_cylinder_wheeled.urdf"
         name = "hybriped"
         foot_name = "wheel"
         penalize_contacts_on = ["link2", "link3"]
@@ -95,10 +103,17 @@ class WheeledHybripedRoughCfg( LeggedRobotCfg ):
         max_contact_force = 500.
         only_positive_rewards = True
         class scales( LeggedRobotCfg.rewards.scales ):
-            #dof_acc = 0#-2.5e-7
-            #action_rate = 0#-0.01
-            #torques = 0#
-            feet_air_time =  2
+            dof_acc = 0#
+            action_rate = 0#
+            torques = 0#
+            orientation = -5.0
+            feet_air_time = 0
+            joint_pos_track = 10.0
+            #wheel_acc = -2.5e-8
+            #action_rate_wheel = -0.1
+            # dof_acc_leg = -2.5e-7
+            # action_rate_leg = -0.01
+            # torques_leg = -0.00001
             pass
 
 class WheeledHybripedRoughCfgPPO( LeggedRobotCfgPPO ):

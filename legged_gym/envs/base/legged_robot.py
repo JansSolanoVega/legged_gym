@@ -342,8 +342,11 @@ class LeggedRobot(BaseTask):
             env_ids (List[int]): Environments ids for which new commands are needed
         """
         if not teleop:
-            self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
-            self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+            self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+            if self.command_ranges["lin_vel_y"][0]==0 and self.command_ranges["lin_vel_y"][1]==0:
+                self.commands[env_ids, 0] = 0.0
+            else:
+                self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids), 1), device=self.device).squeeze(1)
             if self.cfg.commands.heading_command:
                 self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0], self.command_ranges["heading"][1], (len(env_ids), 1), device=self.device).squeeze(1)
             else:
@@ -380,7 +383,9 @@ class LeggedRobot(BaseTask):
         else:
             raise NameError(f"Unknown controller type: {control_type}")
         
-        return torch.clip(torques, -self.torque_limits, self.torque_limits)
+        self.clipped = torch.clip(torques, -self.torque_limits, self.torque_limits)
+        #print(torch.mean(torch.abs(clipped)).item())
+        return self.clipped
 
     def _reset_dofs(self, env_ids):
         """ Resets DOF position and velocities of selected environmments
@@ -896,9 +901,11 @@ class LeggedRobot(BaseTask):
         contact_filt = torch.logical_or(contact, self.last_contacts) 
         self.last_contacts = contact
         first_contact = (self.feet_air_time > 0.) * contact_filt
+        #print(contact_filt.shape)
         self.feet_air_time += self.dt
         rew_airTime = torch.sum((self.feet_air_time - 0.5) * first_contact, dim=1) # reward only on first contact with the ground
         rew_airTime *= torch.norm(self.commands[:, :2], dim=1) > 0.1 #no reward for zero command
+        #rew_airTime *= ~torch.logical_and(torch.logical_and(torch.sum(contact_filt[:, :2], axis=1)%2==0, torch.sum(contact_filt[:, 2:], axis=1)%2==0), torch.sum(contact_filt[:, :2], axis=1)!=torch.sum(contact_filt[:, 2:], axis=1))#no reward for only two superior or inferior legs in use
         self.feet_air_time *= ~contact_filt
         return rew_airTime
     

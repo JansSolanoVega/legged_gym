@@ -108,10 +108,12 @@ class EvalRobot(LeggedRobot):
             if self.info[i]["total"] < self.cfg.logger.number_evaluations:
                 self.info[i]["vel_x"][-1].append(self.base_lin_vel[i, 0].item())
                 self.info[i]["vel_y"][-1].append(self.base_lin_vel[i, 1].item())
+                self.info[i]["torques"][-1].append(self.clipped[i].cpu().numpy().tolist())
                 self.info[i]["successful"] += int(self.terrain_solved[i])
                 self.info[i]["total"] += int(self.reset_buf[i])
                 if int(self.reset_buf[i]) and self.info[i]["total"] < self.cfg.logger.number_evaluations:
                     self.info[i]["vel_x"].append([]), self.info[i]["vel_y"].append([])
+                    self.info[i]["torques"].append([])
 
     def _resample_commands(self, env_ids, teleop=False):
         """ Randommly select commands of some environments
