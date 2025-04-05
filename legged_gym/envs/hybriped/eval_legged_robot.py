@@ -42,6 +42,10 @@ from typing import Tuple, Dict
 from legged_gym.envs import LeggedRobot
 from legged_gym import LEGGED_GYM_ROOT_DIR
 from legged_gym.utils.terrain_eval import Terrain_Eval
+from legged_gym.envs.base.base_task import BaseTask
+from legged_gym.utils.terrain import Terrain
+from legged_gym.utils.math import quat_apply_yaw, wrap_to_pi, torch_rand_sqrt_float
+from legged_gym.utils.helpers import class_to_dict
 
 from .eval_robot_config import EvalRobotCfg
 class EvalRobot(LeggedRobot):
@@ -108,12 +112,32 @@ class EvalRobot(LeggedRobot):
             if self.info[i]["total"] < self.cfg.logger.number_evaluations:
                 self.info[i]["vel_x"][-1].append(self.base_lin_vel[i, 0].item())
                 self.info[i]["vel_y"][-1].append(self.base_lin_vel[i, 1].item())
+                self.info[i]["vel_w"][-1].append(self.base_ang_vel[i, 2].item())
                 self.info[i]["torques"][-1].append(self.clipped[i].cpu().numpy().tolist())
                 self.info[i]["successful"] += int(self.terrain_solved[i])
                 self.info[i]["total"] += int(self.reset_buf[i])
                 if int(self.reset_buf[i]) and self.info[i]["total"] < self.cfg.logger.number_evaluations:
-                    self.info[i]["vel_x"].append([]), self.info[i]["vel_y"].append([])
+                    self.info[i]["vel_x"].append([]); self.info[i]["vel_y"].append([]); self.info[i]["vel_w"].append([])
                     self.info[i]["torques"].append([])
+                if int(self.reset_buf[i]) and self.info[i]["total"] <= self.cfg.logger.number_evaluations:
+                    self.info[i]["commands"].append(self.commands[i, :].cpu().numpy().tolist())
+
+    def _post_physics_step_callback(self):
+        """ Callback called before computing terminations, rewards, and observations
+            Default behaviour: Compute ang vel command based on target and heading, compute measured terrain heights and randomly push robots
+        """
+        # 
+        # env_ids = (self.episode_length_buf % int(self.cfg.commands.resampling_time / self.dt)==0).nonzero(as_tuple=False).flatten()
+        # self._resample_commands(env_ids, self.teleop)
+        if self.cfg.commands.heading_command:
+            forward = quat_apply(self.base_quat, self.forward_vec)
+            heading = torch.atan2(forward[:, 1], forward[:, 0])
+            self.commands[:, 2] = torch.clip(0.5*wrap_to_pi(self.commands[:, 3] - heading), -1., 1.)
+
+        if self.cfg.terrain.measure_heights:
+            self.measured_heights = self._get_heights()
+        if self.cfg.domain_rand.push_robots and  (self.common_step_counter % self.cfg.domain_rand.push_interval == 0):
+            self._push_robots()
 
     def _resample_commands(self, env_ids, teleop=False):
         """ Randommly select commands of some environments
@@ -121,11 +145,29 @@ class EvalRobot(LeggedRobot):
         Args:
             env_ids (List[int]): Environments ids for which new commands are needed
         """
-        if self.cfg.logger.vel_x:
-            self.commands[env_ids, 0] = self.cfg.logger.linear_vel*torch.ones(len(env_ids), 1, device=self.device).squeeze(1)
-            self.commands[env_ids, 1] = torch_rand_float(-self.cfg.logger.perpendicular_vel_max, self.cfg.logger.perpendicular_vel_max, (len(env_ids), 1), device=self.device).squeeze(1)
-        else:
-            self.commands[env_ids, 0] = torch_rand_float(-self.cfg.logger.perpendicular_vel_max, self.cfg.logger.perpendicular_vel_max, (len(env_ids), 1), device=self.device).squeeze(1)
-            self.commands[env_ids, 1] = self.cfg.logger.linear_vel*torch.ones(len(env_ids), 1, device=self.device).squeeze(1)
-        self.commands[env_ids, 2] = torch.zeros(len(env_ids), 1, device=self.device).squeeze(1)
+        #If fixed -> uneven terrain analysis, x or y vel and small movement in the perpendicular dir
+        #Otherwise, random either x, y or w 
+        if self.cfg.logger.vel=="x":
+            if self.cfg.logger.vel_fixed:
+                self.commands[env_ids, 0] = self.cfg.logger.linear_vel*torch.ones(len(env_ids), 1, device=self.device).squeeze(1)
+                self.commands[env_ids, 1] = torch_rand_float(-self.cfg.logger.perpendicular_vel_max, self.cfg.logger.perpendicular_vel_max, (len(env_ids), 1), device=self.device).squeeze(1)
+            else:
+                self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+                self.commands[env_ids, 1] = torch.zeros(len(env_ids), 1, device=self.device).squeeze(1) 
+            self.commands[env_ids, 2] = torch.zeros(len(env_ids), 1, device=self.device).squeeze(1)
+        elif self.cfg.logger.vel=="y":
+            if self.cfg.logger.vel_fixed:
+                self.commands[env_ids, 0] = torch_rand_float(-self.cfg.logger.perpendicular_vel_max, self.cfg.logger.perpendicular_vel_max, (len(env_ids), 1), device=self.device).squeeze(1)
+                self.commands[env_ids, 1] = self.cfg.logger.linear_vel*torch.ones(len(env_ids), 1, device=self.device).squeeze(1)
+            else:
+                self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+                self.commands[env_ids, 0] = torch.zeros(len(env_ids), 1, device=self.device).squeeze(1) 
+            self.commands[env_ids, 2] = torch.zeros(len(env_ids), 1, device=self.device).squeeze(1)
+        elif self.cfg.logger.vel=="w":
+            self.commands[env_ids, 0] = torch.zeros(len(env_ids), 1, device=self.device).squeeze(1)
+            self.commands[env_ids, 1] = torch.zeros(len(env_ids), 1, device=self.device).squeeze(1)
+            if self.cfg.logger.vel_fixed:    
+                self.commands[env_ids, 2] = self.cfg.logger.linear_vel*torch.ones(len(env_ids), 1, device=self.device).squeeze(1)
+            else:
+                self.commands[env_ids, 2] = torch_rand_float(self.command_ranges["ang_vel_yaw"][0], self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1), device=self.device).squeeze(1)
         

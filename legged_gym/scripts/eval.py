@@ -57,7 +57,7 @@ def min_total_evaluations(env):
     return mini
 
 def log_data(env):
-    fname = env.cfg.terrain.terrain_type+"-"+str(env.cfg.terrain.terrain_direction_up)+"-"+str(env.cfg.logger.linear_vel)+"-"+str(env.cfg.logger.perpendicular_vel_max)+"-"+str(env.cfg.logger.vel_x)
+    fname = env.cfg.terrain.terrain_type+"-"+str(env.cfg.terrain.terrain_direction_up)+"-"+str(env.cfg.logger.linear_vel)+"-"+str(env.cfg.logger.perpendicular_vel_max)+"-"+str(env.cfg.logger.vel)
     with open(os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'scripts',fname+'.json'), 'w') as json_file:
         json.dump(env.info, json_file, indent=4)
 

@@ -54,9 +54,16 @@ class EvalRobotCfg( LeggedRobotCfg ):
         rectangle_min_size = 1.
         rectangle_max_size = 2.
 
+    class domain_rand(LeggedRobotCfg.domain_rand):
+        push_robots = False
+
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.6] # x,y,z [m]
         default_joint_angles = GAIT_3_STABLE
+
+    class commands( LeggedRobotCfg.commands ):
+        heading_command = False
+        #resampling_time = 15
 
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
@@ -91,9 +98,10 @@ class EvalRobotCfg( LeggedRobotCfg ):
     class logger:
         linear_vel = 0.75
         perpendicular_vel_max = linear_vel/10
-        vel_x = True
+        vel = "w"
+        vel_fixed = False
 
-        number_evaluations = 50
+        number_evaluations = 1
 
 class EvalRobotCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):

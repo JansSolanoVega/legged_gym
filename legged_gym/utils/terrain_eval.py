@@ -103,9 +103,10 @@ class Terrain_Eval(Terrain):
                 self.info[-1]["type"] = terrain_type
                 self.info[-1]["height"] = height
                 self.info[-1]["slope"] = slope
+                self.info[-1]["commands"] = []
                 self.info[-1]["direction"] = "up" if up else "down"
                 self.info[-1]["successful"] = 0; self.info[-1]["total"] = 0 
-                self.info[-1]["vel_x"] = [[]]; self.info[-1]["vel_y"] = [[]]
+                self.info[-1]["vel_x"] = [[]]; self.info[-1]["vel_y"] = [[]]; self.info[-1]["vel_w"] = [[]]
                 self.info[-1]["torques"] = [[]]
         return terrain
 
