@@ -41,8 +41,8 @@ class EvalRobotCfg( LeggedRobotCfg ):
         num_rows= 20 # number of terrain rows (levels)
         num_cols = 20 # number of terrain cols (types)
 
-        terrain_type = "stairs"
-        terrain_direction_up = True #it means robot will go down, since terrain center (terrain_direction_up=True) is high
+        terrain_type = "plane"
+        terrain_direction_up = None #it means robot will go down, since terrain center (terrain_direction_up=True) is high
         
         slope_treshold = 1.732
 
@@ -98,10 +98,10 @@ class EvalRobotCfg( LeggedRobotCfg ):
     class logger:
         linear_vel = 0.75
         perpendicular_vel_max = linear_vel/10
-        vel = "y"
-        vel_fixed = True
+        vel = "w"
+        vel_fixed = False
 
-        number_evaluations = 50
+        number_evaluations = 1
 
 class EvalRobotCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
