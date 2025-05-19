@@ -31,6 +31,7 @@
 from time import time
 import numpy as np
 import os
+import random
 
 from isaacgym.torch_utils import *
 from isaacgym import gymtorch, gymapi, gymutil
@@ -52,9 +53,8 @@ class FallRecovery(LeggedRobot):
         super().__init__(cfg, sim_params, physics_engine, sim_device, headless, teleop)
         with open(os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'scripts', "init_poses_collected.json"), 'r') as json_file:
             self.data = json.load(json_file)
-        MAX_LENGTH = int(1e4)
+        MAX_LENGTH = int(1e5)
         self.succesful_recoveries_buffer = deque(maxlen=MAX_LENGTH)
-        self.number_attempts_buffer = deque(maxlen=MAX_LENGTH)
 
         self.info = {"successful": 0, "total": 0, "duration": 0}
         self.step_count = np.zeros(self.num_envs)
@@ -75,6 +75,8 @@ class FallRecovery(LeggedRobot):
         # reset robot states
         #self.collect_poses_idx_random = np.zeros(len(env_ids), dtype=int)
         self.collect_poses_idx_random = np.random.randint(0, len(self.data["base_pos"]), size=len(env_ids))
+        
+        #print(self.collect_poses_idx_random)
         self._reset_dofs(env_ids)
         self._reset_root_states(env_ids)
 
@@ -86,8 +88,13 @@ class FallRecovery(LeggedRobot):
 
         self.extras["episode"] = {}
 
-        if sum(self.number_attempts_buffer):
-            self.extras["episode"]['Succesful recoveries (%)'] = sum(self.succesful_recoveries_buffer) * 100 / sum(self.number_attempts_buffer)
+        for key in self.episode_sums.keys():
+            self.extras["episode"]['rew_' + key] = torch.mean(self.episode_sums[key][env_ids]) / self.max_episode_length_s
+            self.episode_sums[key][env_ids] = 0.
+
+        if len(self.succesful_recoveries_buffer) == self.succesful_recoveries_buffer.maxlen:
+            self.extras["episode"]['Succesful recoveries (%)'] = sum(self.succesful_recoveries_buffer) * 100 / self.succesful_recoveries_buffer.maxlen
+            #print(self.extras["episode"]['Succesful recoveries (%)'])
         else:
             self.extras["episode"]['Succesful recoveries (%)'] = 0.0
         
@@ -103,7 +110,6 @@ class FallRecovery(LeggedRobot):
         """
         self.dof_pos[env_ids] = torch.tensor(np.array(self.data["dof_pos"])[self.collect_poses_idx_random], device=self.device, dtype=torch.float)
         self.dof_vel[env_ids] = 0.
-
         env_ids_int32 = env_ids.to(dtype=torch.int32)
         self.gym.set_dof_state_tensor_indexed(self.sim,
                                               gymtorch.unwrap_tensor(self.dof_state),
@@ -161,14 +167,22 @@ class FallRecovery(LeggedRobot):
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
         contact_filt = torch.logical_or(contact, self.last_contacts) 
         #self.standing_pose_reached = torch.logical_and(torch.norm(self.dof_pos-self.default_dof_pos, dim=-1)<self.cfg.asset.pose_error_threshold_termination, torch.sum(contact_filt, dim=1)==4)
-        self.standing_pose_reached = torch.logical_and(torch.sum(contact_filt, dim=1)>=3, self.projected_gravity[:, 2]<-0.7)#torch.logical_and(torch.abs(self.root_states[:, 2] - self.cfg.rewards.base_height_target)<self.cfg.asset.height_error_threshold_termination, torch.sum(contact_filt, dim=1)==4)
+
+        #self.standing_pose_reached = torch.logical_and(torch.sum(contact_filt, dim=1)>=3, self.projected_gravity[:, 2]<-0.7)
+        #self.standing_pose_reached = torch.logical_and(torch.abs(self.root_states[:, 2] - self.cfg.rewards.base_height_target)<self.cfg.asset.height_error_threshold_termination, torch.sum(contact_filt, dim=1)==4)#training works with this one
+        
+        #self.standing_pose_reached = torch.logical_and((torch.abs(self.dof_pos - self.default_dof_pos) < self.cfg.asset.pose_error_threshold_termination).all(dim=1), torch.sum(contact_filt, dim=1)==4)#training works with this one
+
+        if self.cfg.env.evaluation:
+            self.standing_pose_reached = torch.logical_and(torch.mean(torch.abs(self.dof_pos - self.default_dof_pos), dim=1) < self.cfg.asset.pose_error_threshold_termination, self.projected_gravity[:, 2]<-0.75)#eval works with this one        
+        else:
+            self.standing_pose_reached = torch.logical_and(torch.abs(self.root_states[:, 2] - self.cfg.rewards.base_height_target)<self.cfg.asset.height_error_threshold_termination, torch.sum(contact_filt, dim=1)==4)#training works with this one        
+
+        
         #self.succesful_recoveries = torch.mean(self.standing_pose_reached.float()).item()
         #print(self.reset_buf, self.time_out_buf, self.standing_pose_reached)
         self.reset_buf |= self.time_out_buf
         self.reset_buf |= self.standing_pose_reached
-        self.succesful_recoveries_buffer.append(torch.sum(self.standing_pose_reached.float()).item())
-        self.number_attempts_buffer.append(torch.sum(self.reset_buf.float()).item())
-
         for i in range(self.standing_pose_reached.shape[0]):
             self.info["successful"] += int(self.standing_pose_reached[i])
             self.info["total"] += int(self.reset_buf[i])
@@ -176,26 +190,54 @@ class FallRecovery(LeggedRobot):
             if self.standing_pose_reached[i]:
                 self.info["duration"] += self.dt * self.step_count[i]
                 self.step_count[i] = 0
-
+            if self.reset_buf[i]:
+                self.succesful_recoveries_buffer.append(int(self.standing_pose_reached[i]))
+        
     def compute_observations(self):
         """ Computes observations
         """
         self.obs_buf = torch.cat((  self.base_lin_vel * self.obs_scales.lin_vel,
                                     self.base_ang_vel  * self.obs_scales.ang_vel,
                                     self.projected_gravity,
-                                    self.dof_pos * self.obs_scales.dof_pos,
+                                    (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions
-                                    ),dim=-1)   
+                                    ),dim=-1) 
+
+    def _post_physics_step_callback(self):
+        pass  
         
     def _reward_base_height_flat(self):
         #print(torch.square(self.root_states[:, 2] - self.cfg.rewards.base_height_target))
         #return torch.square(self.root_states[:, 2] - self.cfg.rewards.base_height_target)
-        return (self.projected_gravity[:, 2]<-0.7)*torch.exp(-torch.abs(self.root_states[:, 2] - self.cfg.rewards.base_height_target))
+        return (self.projected_gravity[:, 2]<-0.85)*torch.exp(-5*torch.abs(self.root_states[:, 2] - self.cfg.rewards.base_height_target))
 
     def _reward_joint_pos_track(self):
         pos_track_error = torch.sum(torch.abs(self.dof_pos-self.default_dof_pos), dim=1)
-        return (self.projected_gravity[:, 2]<-0.7)*torch.exp(-pos_track_error/5)
+        return (self.projected_gravity[:, 2]<-0.7)*torch.exp(-pos_track_error)
+        #return torch.exp(-pos_track_error)
+    
+    def _reward_joint_pos_trackv2(self):
+        errors = torch.abs(self.dof_pos-self.default_dof_pos)
+
+        return (self.projected_gravity[:, 2]<-0.7)*torch.mean((errors<self.cfg.asset.pose_error_threshold_termination).float(), axis=1)
+        #     return torch.tensor(1.0)
+        # else:
+        #     return torch.exp(-2*(torch.mean(errors)-self.cfg.asset.pose_error_threshold_termination))
+    
+    def _reward_joint_pos_trackv3(self):
+        error = torch.abs(self.dof_pos-self.default_dof_pos)  # (400, 12)
+        max_error = torch.max(error, dim=1).values  # (400,)
+
+        # Smooth reward: exponentially decays as max joint error increases
+        reward = (self.projected_gravity[:, 2]<-0.7)*torch.exp(-torch.clamp(max_error - self.cfg.asset.pose_error_threshold_termination, min=0.0))
+        return reward
+        
+    
+    def _reward_four_standing(self):
+        contact = self.contact_forces[:, self.feet_indices, 2] > 1.
+        contact_filt = torch.logical_or(contact, self.last_contacts) 
+        return (self.projected_gravity[:, 2]<-0.7)*torch.mean((torch.sum(contact_filt, dim=1)==4).float())
     
     def _reward_base_pos_shift(self):
         return torch.norm(self.root_states[:, :2] - self.env_origins[:, :2], dim=-1)
@@ -220,4 +262,14 @@ class FallRecovery(LeggedRobot):
     def _reward_up_direction(self):
         z_direction = self.projected_gravity[:, 2]
         #return torch.min(torch.ones(z_direction.shape, device=self.device), torch.exp(2*(-z_direction-1)))
+        
         return torch.exp(-z_direction-1)
+    
+    def _reward_dof_acc(self):
+        # Penalize dof accelerations
+        return torch.sum(torch.square((self.last_dof_vel - self.dof_vel) / self.dt), dim=1)
+    
+    def _reward_action_rate(self):
+        pen = (self.projected_gravity[:, 2]<-0.7).int()*(self.cfg.asset.smoothness_penalization-1)+1
+        # Penalize changes in actions
+        return pen*torch.sum(torch.square(self.last_actions - self.actions), dim=1)
