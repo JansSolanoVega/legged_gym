@@ -58,6 +58,7 @@ class FallRecovery(LeggedRobot):
 
         self.info = {"successful": 0, "total": 0, "duration": 0}
         self.step_count = np.zeros(self.num_envs)
+        self.torques_log = [[]]
 
     def reset_idx(self, env_ids):
         """ Reset some environments.
@@ -186,11 +187,13 @@ class FallRecovery(LeggedRobot):
         for i in range(self.standing_pose_reached.shape[0]):
             self.info["successful"] += int(self.standing_pose_reached[i])
             self.info["total"] += int(self.reset_buf[i])
+            self.torques_log[-1].append(self.clipped[i].cpu().numpy().tolist())
             self.step_count[i] += 1
             if self.standing_pose_reached[i]:
                 self.info["duration"] += self.dt * self.step_count[i]
                 self.step_count[i] = 0
             if self.reset_buf[i]:
+                self.torques_log.append([])
                 self.succesful_recoveries_buffer.append(int(self.standing_pose_reached[i]))
         
     def compute_observations(self):

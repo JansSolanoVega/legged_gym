@@ -39,6 +39,7 @@ import numpy as np
 import torch
 import threading
 from tqdm import tqdm
+import json
 
 SPEED = 0.5
 
@@ -125,6 +126,8 @@ def play(args):
         #             logger.log_rewards(infos["episode"], num_episodes)
         # elif i==stop_rew_log:
         #     logger.print_rewards()
+    with open(os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'scripts','torques_recovery.json'), 'w') as json_file:
+        json.dump(env.torques_log, json_file, indent=4)
 
 if __name__ == '__main__':
     EXPORT_POLICY = True

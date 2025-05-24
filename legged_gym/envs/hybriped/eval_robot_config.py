@@ -96,10 +96,10 @@ class EvalRobotCfg( LeggedRobotCfg ):
             pass
     
     class logger:
-        linear_vel = 0.75
-        perpendicular_vel_max = linear_vel/10
-        vel = "w"
-        vel_fixed = False
+        linear_vel = 1
+        perpendicular_vel_max = 0#linear_vel/10
+        vel = "y"
+        vel_fixed = True #Fixed for analysis of terrain accuracy or flat terrain, not for speed analysis
 
         number_evaluations = 1
 
