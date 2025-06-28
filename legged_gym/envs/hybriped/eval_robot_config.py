@@ -38,11 +38,11 @@ class EvalRobotCfg( LeggedRobotCfg ):
 
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = 'trimesh'
-        num_rows= 20 # number of terrain rows (levels)
-        num_cols = 20 # number of terrain cols (types)
+        num_rows= 4 # number of terrain rows (levels)
+        num_cols = 4 # number of terrain cols (types)
 
-        terrain_type = "plane"
-        terrain_direction_up = None #it means robot will go down, since terrain center (terrain_direction_up=True) is high
+        terrain_type = "stairs"
+        terrain_direction_up = False #it means robot will go down, since terrain center (terrain_direction_up=True) is high
         
         slope_treshold = 1.732
 

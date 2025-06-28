@@ -39,6 +39,8 @@ class HybripedCFlatCfg(HybripedRoughCfg ):
         measure_heights = False
   
     class asset( HybripedRoughCfg.asset ):
+        #file = "/home/zetans/Desktop/rl_hybriped/assets/urdf/hybriped/urdf/hybriped_simplified_limits_cylinder_gait3_free.urdf"
+        file = "/home/zetans/Desktop/rl_hybriped/assets/urdf/hybriped_realsense/final_rotated.urdf"
         self_collisions = 0 # 1 to disable, 0 to enable...bitwise filter
 
     class rewards( HybripedRoughCfg.rewards ):
@@ -72,4 +74,4 @@ class HybripedFlatCfgPPO( HybripedRoughCfgPPO ):
         run_name = ''
         experiment_name = 'hybriped'
         load_run = -1
-        max_iterations = 500
+        max_iterations = 1000

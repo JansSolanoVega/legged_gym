@@ -71,8 +71,8 @@ class HybripedRoughCfg( LeggedRobotCfg ):
         max_contact_force = 500.
         only_positive_rewards = True
         class scales( LeggedRobotCfg.rewards.scales ):
-            tracking_lin_vel = 1.0
-            tracking_ang_vel = 0.9
+            # tracking_lin_vel = 1.0
+            # tracking_ang_vel = 0.9
             pass
 
 class HybripedRoughCfgPPO( LeggedRobotCfgPPO ):

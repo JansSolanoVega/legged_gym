@@ -66,7 +66,7 @@ class FallRecoveryCfg( LeggedRobotCfg ):
         num_actions = 12
         num_observations = 45
         episode_length_s = 7.5
-        evaluation = False
+        evaluation = True
 
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = 'plane'
@@ -100,7 +100,7 @@ class FallRecoveryCfg( LeggedRobotCfg ):
         penalize_contacts_on = ["base_link"]
         self_collisions = 0 # 1 to disable, 0 to enable...bitwise filter
         flip_visual_attachments = False
-        use_mesh_materials = False
+        use_mesh_materials = True
 
         distance_threshold_termination = 1
         pose_error_threshold_termination = 0.1#0.1 # 5°
@@ -134,8 +134,8 @@ class FallRecoveryCfg( LeggedRobotCfg ):
             feet_air_time = 0.0
             collision = 0.0
 
-            torques = -0.00005 #Penalize high torques
-            dof_acc = -7.5e-7 #Penalize acceleration changes in joints
+            torques = -0.00001 #Penalize high torques
+            dof_acc = -2.5e-7 #Penalize acceleration changes in joints
             action_rate = -0.1 #Penalize huge changes in actions
 
             base_orientation_track = 0.0#-5

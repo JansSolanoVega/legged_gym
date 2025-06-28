@@ -187,13 +187,15 @@ class FallRecovery(LeggedRobot):
         for i in range(self.standing_pose_reached.shape[0]):
             self.info["successful"] += int(self.standing_pose_reached[i])
             self.info["total"] += int(self.reset_buf[i])
-            self.torques_log[-1].append(self.clipped[i].cpu().numpy().tolist())
+            if self.cfg.env.evaluation:
+                self.torques_log[-1].append(self.clipped[i].cpu().numpy().tolist())
             self.step_count[i] += 1
             if self.standing_pose_reached[i]:
                 self.info["duration"] += self.dt * self.step_count[i]
                 self.step_count[i] = 0
             if self.reset_buf[i]:
-                self.torques_log.append([])
+                if self.cfg.env.evaluation:
+                    self.torques_log.append([])
                 self.succesful_recoveries_buffer.append(int(self.standing_pose_reached[i]))
         
     def compute_observations(self):
